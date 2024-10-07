@@ -1,6 +1,9 @@
 package config
 
-import "github.com/ilyakaznacheev/cleanenv"
+import (
+	"github.com/ilyakaznacheev/cleanenv"
+	"go-pocket-link/pkg/errb"
+)
 
 type FileReader struct {
 	path string
@@ -18,7 +21,7 @@ func (r *FileReader) Read() (*Config, error) {
 	cfg := &Config{}
 	err := cleanenv.ReadConfig(r.path, cfg)
 	if err != nil {
-		return nil, err
+		return nil, errb.Errorf("failed to read %s: %s", r.path, err.Error())
 	}
 	return cfg, nil
 }

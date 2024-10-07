@@ -8,8 +8,7 @@ import (
 )
 
 func Run(configPath string) {
-	cfg := config.NewFileReader(configPath).MustRead()
-	log.Printf("%+v\n", cfg.Auth)
+	cfg := mustReadConfig(config.NewFileReader(configPath))
 
 	dsn := cfg.DB.Postgres.DSN()
 	db, err := sql.Open("postgres", dsn)
@@ -24,4 +23,9 @@ func Run(configPath string) {
 		log.Fatal(err)
 	}
 	log.Println("connection is stable")
+}
+
+func mustReadConfig(r config.Reader) *config.Config {
+	cfg := r.MustRead()
+	return cfg
 }
