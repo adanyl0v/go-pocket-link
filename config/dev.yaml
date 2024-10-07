@@ -1,0 +1,14 @@
+env: "dev"
+
+db:
+  postgres:
+    host: "postgres_db"
+    port: 5432
+    name: "go_pocket_link"
+    ssl_mode: "disable"
+
+auth:
+  access_tok:
+    expires_at: 10m
+  refresh_tok:
+    expires_at: 43200m

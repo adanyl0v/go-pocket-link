@@ -1,13 +1,28 @@
 version: '3.9'
 
 services:
+  server:
+    build:
+      context: .
+      target: final
+    ports:
+      - '8080:8080'
+    env_file:
+      - dev.env
+    volumes:
+      - ./config/dev.yaml:/app/config.yaml
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+
   postgres_db:
     image: postgres:alpine
     container_name: postgres_db
     restart: always
     ports:
-      - '${DB_POSTGRES_PORT}:5432'
+      - '5432:5432'
     environment:
+      - POSTGRES_USER=&{DB_POSTGRES_USER}
       - POSTGRES_PASSWORD=${DB_POSTGRES_PASS}
       - POSTGRES_DB=go_pocket_link
       - PGDATA=/var/lib/postgresql/data/pgdata

@@ -7,10 +7,11 @@ import (
 	"log"
 )
 
-func Run() {
-	cfg := config.NewEnvReader().MustRead()
-	dsn := cfg.DB.Postgres.DSN()
+func Run(configPath string) {
+	cfg := config.NewFileReader(configPath).MustRead()
+	log.Printf("%+v\n", cfg.Auth)
 
+	dsn := cfg.DB.Postgres.DSN()
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		log.Fatal(err)

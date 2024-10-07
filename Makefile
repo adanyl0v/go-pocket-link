@@ -1,11 +1,13 @@
 include .env
 
 DB_MIGRATIONS_DIR=./storage/migrations
-DB_POSTGRES_DSN="postgres://${DB_POSTGRES_USER}:${DB_POSTGRES_PASS}@${DB_POSTGRES_HOST}:${DB_POSTGRES_PORT}/${DB_POSTGRES_NAME}?sslmode=${DB_POSTGRES_SSL_MODE}"
+
+DB_POSTGRES_DSN="postgres://root:${DB_POSTGRES_PASS}@localhost:5432/go_pocket_link?sslmode=disable"
 
 all:
 	@echo "\n- [+] Applying migrations..."
 	goose -dir $(DB_MIGRATIONS_DIR) postgres $(DB_POSTGRES_DSN) status
+	goose -dir $(DB_MIGRATIONS_DIR) postgres $(DB_POSTGRES_DSN) redo
 	goose -dir $(DB_MIGRATIONS_DIR) postgres $(DB_POSTGRES_DSN) up
 	@echo "\n- [+] Running the application..."
 	go run ./cmd/app/main.go
