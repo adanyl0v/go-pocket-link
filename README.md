@@ -1,2 +1,1 @@
-# go-pocket-link
-Pocket Link
+# Pocket Link
