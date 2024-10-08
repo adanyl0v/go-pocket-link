@@ -10,6 +10,12 @@ type Reader interface {
 	MustRead() *Config
 }
 
+const (
+	EnvLocal = "local"
+	EnvProd  = "prod"
+	EnvDev   = "dev"
+)
+
 type Config struct {
 	Env  string `yaml:"env" env-required:"true"`
 	DB   DB     `yaml:"db"`
