@@ -1,17 +1,19 @@
 include .env
 
-DB_MIGRATIONS_DIR=./storage/migrations
-DB_POSTGRES_DSN="postgres://${DB_POSTGRES_USER}:${DB_POSTGRES_PASS}@localhost:5432/go_pocket_link?sslmode=disable"
+POSTGRES_MIGRATIONS_PATH=./storage/postgres/migrations
+POSTGRES_DSN="postgres://${POSTGRES_USER}:${POSTGRES_PASS}@localhost:5432/go_pocket_link?sslmode=disable"
+
+APP_EXECUTABLE=./build/go-pocket-link
 
 all:
 	@echo "\n- [+] Applying migrations..."
-	goose -dir $(DB_MIGRATIONS_DIR) postgres $(DB_POSTGRES_DSN) status &&\
-	goose -dir $(DB_MIGRATIONS_DIR) postgres $(DB_POSTGRES_DSN) redo &&\
-	goose -dir $(DB_MIGRATIONS_DIR) postgres $(DB_POSTGRES_DSN) up
+	goose -dir $(POSTGRES_MIGRATIONS_PATH) postgres $(POSTGRES_DSN) status &&\
+	goose -dir $(POSTGRES_MIGRATIONS_PATH) postgres $(POSTGRES_DSN) redo &&\
+	goose -dir $(POSTGRES_MIGRATIONS_PATH) postgres $(POSTGRES_DSN) up
 	@echo "\n- [+] Building the application..."
-	go build -o build/go-pocket-link ./cmd/app/main.go
+	go build -o $(APP_EXECUTABLE) ./cmd/app/main.go
 	@echo "- [+] Running the application..."
-	./build/go-pocket-link
+	$(APP_EXECUTABLE)
 
 up:
 	@echo "\n- [+] Running docker containers"

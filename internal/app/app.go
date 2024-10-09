@@ -6,6 +6,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"go-pocket-link/internal/config"
 	"go-pocket-link/pkg/errb"
+	pgstor "go-pocket-link/pkg/storage/postgres"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -16,7 +17,12 @@ func Run(configPath string) {
 	cfg := mustReadConfig(config.NewFileReader(configPath))
 	mustSetupLogger(cfg.Env)
 
-	log.Debugf("read config at '%s'", configPath)
+	log.Infof("read config '%s'\n", configPath)
+	log.Infof("set up logger with '%s' env\n", cfg.Env)
+
+	pgDB := mustSetupPostgres(cfg.Storage.Postgres)
+	defer func() { _ = pgDB.Close() }()
+	log.Infoln("connected to postgres")
 }
 
 func mustReadConfig(r config.Reader) *config.Config {
@@ -54,4 +60,12 @@ func mustSetupLogger(env string) {
 
 	l.SetOutput(os.Stdout)
 	l.SetReportCaller(true)
+}
+
+func mustSetupPostgres(pgCfg config.Postgres) *pgstor.Storage {
+	db, err := pgstor.New(pgCfg.DSN(), nil)
+	if err != nil {
+		log.Fatalln("failed to connect to postgres:", err)
+	}
+	return db
 }

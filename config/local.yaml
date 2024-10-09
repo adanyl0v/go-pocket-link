@@ -1,11 +1,15 @@
 env: "local"
 
-db:
+storage:
   postgres:
     host: "localhost"
     port: 5432
     name: "go_pocket_link"
     ssl_mode: "disable"
+    max_open_conns: 20
+    max_idle_conns: 10
+    conn_max_lifetime: 10s
+    conn_max_idle_time: 10s
 
 auth:
   access_tok:

@@ -17,22 +17,26 @@ const (
 )
 
 type Config struct {
-	Env  string `yaml:"env" env-required:"true"`
-	DB   DB     `yaml:"db"`
-	Auth Auth   `yaml:"auth"`
+	Env     string  `yaml:"env" env-required:"true"`
+	Storage Storage `yaml:"storage"`
+	Auth    Auth    `yaml:"auth"`
 }
 
-type DB struct {
+type Storage struct {
 	Postgres Postgres `yaml:"postgres"`
 }
 
 type Postgres struct {
-	Host    string `yaml:"host" env-required:"true"`
-	Port    string `yaml:"port" env-default:"5432"`
-	User    string `env:"DB_POSTGRES_USER" env-required:"true"`
-	Pass    string `env:"DB_POSTGRES_PASS" env-required:"true"`
-	Name    string `yaml:"name" env-required:"true"`
-	SslMode string `yaml:"ssl_mode" env-default:"disable"`
+	Host            string        `yaml:"host" env-required:"true"`
+	Port            string        `yaml:"port" env-default:"5432"`
+	User            string        `env:"POSTGRES_USER" env-required:"true"`
+	Pass            string        `env:"POSTGRES_PASS" env-required:"true"`
+	Name            string        `yaml:"name" env-required:"true"`
+	SslMode         string        `yaml:"ssl_mode" env-default:"disable"`
+	MaxOpenConns    int           `yaml:"max_open_conns" env-default:"10"`
+	MaxIdleConns    int           `yaml:"max_idle_conns" env-default:"10"`
+	ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime" env-default:"10s"`
+	ConnMaxIdleTime time.Duration `yaml:"conn_max_idle_time" env-default:"10s"`
 }
 
 func (p *Postgres) DSN() string {
