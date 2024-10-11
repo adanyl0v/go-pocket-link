@@ -17,16 +17,21 @@ const (
 )
 
 type Config struct {
-	Env     string  `yaml:"env" env-required:"true"`
-	Storage Storage `yaml:"storage"`
-	Auth    Auth    `yaml:"auth"`
+	Env    string `yaml:"env" env-required:"true"`
+	Server Server `yaml:"server" env-required:"true"`
+	DB     DB     `yaml:"db" env-required:"true"`
+	Auth   Auth   `yaml:"auth" env-required:"true"`
 }
 
-type Storage struct {
-	Postgres Postgres `yaml:"postgres"`
+type Server struct {
+	Host         string        `yaml:"host" env-required:"true"`
+	Port         int           `yaml:"port" env-required:"true"`
+	ReadTimeout  time.Duration `yaml:"read_timeout"`
+	WriteTimeout time.Duration `yaml:"write_timeout"`
+	IdleTimeout  time.Duration `yaml:"idle_timeout"`
 }
 
-type Postgres struct {
+type DB struct {
 	Host            string        `yaml:"host" env-required:"true"`
 	Port            string        `yaml:"port" env-default:"5432"`
 	User            string        `env:"POSTGRES_USER" env-required:"true"`
@@ -39,18 +44,14 @@ type Postgres struct {
 	ConnMaxIdleTime time.Duration `yaml:"conn_max_idle_time" env-default:"10s"`
 }
 
-func (p *Postgres) DSN() string {
+func (p *DB) DSN() string {
 	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
 		p.User, p.Pass, p.Host, p.Port, p.Name, p.SslMode)
 }
 
 type Auth struct {
-	Salt       string `env:"AUTH_SALT" env-required:"true"`
-	Secret     string `env:"AUTH_SECRET" env-required:"true"`
-	AccessTok  Token  `yaml:"access_tok" env-required:"true"`
-	RefreshTok Token  `yaml:"refresh_tok" env-required:"true"`
-}
-
-type Token struct {
-	ExpiresAt time.Duration `yaml:"expires_at" env-required:"true"`
+	Salt            string        `env:"AUTH_SALT" env-required:"true"`
+	Secret          string        `env:"AUTH_SECRET" env-required:"true"`
+	AccessTokenTTL  time.Duration `yaml:"access_token_ttl" env-required:"true"`
+	RefreshTokenTTL time.Duration `yaml:"refresh_token_ttl" env-required:"true"`
 }

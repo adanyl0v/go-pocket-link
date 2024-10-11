@@ -1,9 +1,11 @@
 -- +goose Up
 -- +goose StatementBegin
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE TABLE users (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL UNIQUE,
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    name VARCHAR(256) NOT NULL,
+    email VARCHAR(256) NOT NULL UNIQUE,
     password VARCHAR(1024) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
@@ -12,5 +14,5 @@ CREATE TABLE users (
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS users CASCADE;
 -- +goose StatementEnd

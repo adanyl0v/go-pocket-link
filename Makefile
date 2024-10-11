@@ -7,8 +7,6 @@ APP_EXECUTABLE=./build/go-pocket-link
 
 all:
 	@echo "\n- [+] Applying migrations..."
-	goose -dir $(POSTGRES_MIGRATIONS_PATH) postgres $(POSTGRES_DSN) status &&\
-	goose -dir $(POSTGRES_MIGRATIONS_PATH) postgres $(POSTGRES_DSN) redo &&\
 	goose -dir $(POSTGRES_MIGRATIONS_PATH) postgres $(POSTGRES_DSN) up
 	@echo "\n- [+] Building the application..."
 	go build -o $(APP_EXECUTABLE) ./cmd/app/main.go

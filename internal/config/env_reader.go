@@ -15,7 +15,7 @@ func (r *EnvReader) Read() (*Config, error) {
 	cfg := &Config{}
 	err := cleanenv.ReadEnv(cfg)
 	if err != nil {
-		return nil, errb.Errorf("failed to read .env: %s", err.Error())
+		return nil, errb.Errorf("read .env: %s", err.Error())
 	}
 	return cfg, nil
 }

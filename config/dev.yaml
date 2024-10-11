@@ -1,18 +1,22 @@
 env: "dev"
 
-storage:
-  postgres:
-    host: "postgres_db"
-    port: 5432
-    name: "go_pocket_link"
-    ssl_mode: "disable"
-    max_open_conns: 20
-    max_idle_conns: 10
-    conn_max_lifetime: 10s
-    conn_max_idle_time: 10s
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: 10s
+  write_timeout: 10s
+  idle_timeout: 10s
+
+db:
+  host: "postgres_db"
+  port: 5432
+  name: "go_pocket_link"
+  ssl_mode: "disable"
+  max_open_conns: 20
+  max_idle_conns: 10
+  conn_max_lifetime: 10s
+  conn_max_idle_time: 10s
 
 auth:
-  access_tok:
-    expires_at: 10m
-  refresh_tok:
-    expires_at: 43200m
+  access_token_ttl: 10m
+  refresh_token_ttl: 43200m # 30 days
