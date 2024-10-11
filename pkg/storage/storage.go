@@ -4,8 +4,6 @@ import (
 	"context"
 )
 
-//TODO: implement DB interface for postgresql
-
 type Result interface {
 	LastInsertId() (int64, error)
 }
@@ -21,10 +19,9 @@ type DB interface {
 }
 
 type Saver interface {
-	// Save data from arg, which must be a struct and return the
-	// last inserted id if available. The result is stored in dest if
-	// dest isn't nil. Example: save an application user and
-	// return his new id (postgresql):
+	// Save data from arg, which must be a struct and return the last inserted id if available.
+	// The result is stored in dest if dest is not nil.
+	// Example: save an application user and return his new id (postgresql):
 	//
 	//	type User struct {
 	// 		ID   int64  `db:"id"`

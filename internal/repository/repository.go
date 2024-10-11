@@ -9,14 +9,16 @@ import (
 )
 
 type Repositories struct {
-	Users UsersRepository
-	Links LinksRepository
+	Users    UsersRepository
+	Links    LinksRepository
+	Sessions SessionsRepository
 }
 
 func NewRepositories(db storage.DB) *Repositories {
 	return &Repositories{
-		Users: postgres.NewUsersRepository(db),
-		Links: postgres.NewLinksRepository(db),
+		Users:    postgres.NewUsersRepository(db),
+		Links:    postgres.NewLinksRepository(db),
+		Sessions: postgres.NewSessionsRepository(db),
 	}
 }
 
@@ -40,4 +42,16 @@ type LinksRepository interface {
 	GetAllByUserID(ctx context.Context, id uuid.UUID) ([]domain.Link, error)
 	Update(ctx context.Context, link *domain.Link) error
 	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+type SessionsRepository interface {
+	// Save link and store its ID in [domain.Session.ID]
+	Save(ctx context.Context, session *domain.Session) error
+	GetByID(ctx context.Context, dest *domain.Session) error
+	GetByUserID(ctx context.Context, dest *domain.Session) error
+	GetByRefreshToken(ctx context.Context, dest *domain.Session) error
+	GetAll(ctx context.Context) ([]domain.Session, error)
+	Update(ctx context.Context, session *domain.Session) error
+	DeleteByID(ctx context.Context, id uuid.UUID) error
+	DeleteByRefreshToken(ctx context.Context, token string) error
 }
