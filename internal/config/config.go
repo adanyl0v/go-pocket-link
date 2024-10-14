@@ -21,6 +21,7 @@ type Config struct {
 	Server Server `yaml:"server" env-required:"true"`
 	DB     DB     `yaml:"db" env-required:"true"`
 	Auth   Auth   `yaml:"auth" env-required:"true"`
+	Email  Email  `yaml:"email" env-required:"true"`
 }
 
 type Server struct {
@@ -54,4 +55,9 @@ type Auth struct {
 	Secret          string        `env:"AUTH_SECRET" env-required:"true"`
 	AccessTokenTTL  time.Duration `yaml:"access_token_ttl" env-required:"true"`
 	RefreshTokenTTL time.Duration `yaml:"refresh_token_ttl" env-required:"true"`
+}
+
+type Email struct {
+	Username string `env:"EMAIL_USERNAME" env-required:"true"`
+	Password string `env:"EMAIL_PASSWORD" env-required:"true"`
 }

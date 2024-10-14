@@ -3,7 +3,7 @@ include .env
 POSTGRES_MIGRATIONS_PATH=./storage/postgres/migrations
 POSTGRES_DSN="postgres://${POSTGRES_USER}:${POSTGRES_PASS}@localhost:5432/go_pocket_link?sslmode=disable"
 
-APP_EXECUTABLE=./build/go-pocket-link
+APP_EXECUTABLE=./bin/go-pocket-link
 
 all:
 	@echo "\n- [+] Applying migrations..."

@@ -1,5 +1,7 @@
 .editorconfig
 .git/
+.bin/
+/build/
 AUTHORS.md
 CONTRIBUTING.md
 LICENSE

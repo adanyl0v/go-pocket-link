@@ -17,18 +17,20 @@ func NewUsersRepository(db storage.DB) *UsersRepository {
 }
 
 func (r *UsersRepository) Save(ctx context.Context, user *domain.User) error {
-	query := `INSERT INTO users (name, email, password) VALUES (:name, :email, :password) RETURNING id`
+	query := `INSERT INTO users (name, email, password, created_at, updated_at) VALUES (:name, :email, :password, :created_at, :updated_at) RETURNING id`
+	user.CreatedAt = time.Now().In(time.Local)
+	user.UpdatedAt = user.CreatedAt
 	return r.db.Save(ctx, &user.ID, query, user)
 }
 
 func (r *UsersRepository) GetByID(ctx context.Context, dest *domain.User) error {
-	query := `SELECT * FROM users WHERE id = $1`
-	return r.db.Get(ctx, dest, query, dest.ID)
+	query := `SELECT * FROM users WHERE id = :id`
+	return r.db.GetNamed(ctx, dest, query, dest)
 }
 
 func (r *UsersRepository) GetByCredentials(ctx context.Context, dest *domain.User) error {
-	query := `SELECT * FROM users WHERE email = $1 AND password = $2`
-	return r.db.Get(ctx, &dest, query, dest.Email, dest.Password)
+	query := `SELECT * FROM users WHERE email = :email AND password = :password`
+	return r.db.GetNamed(ctx, dest, query, dest)
 }
 
 func (r *UsersRepository) GetAll(ctx context.Context) ([]domain.User, error) {
@@ -43,7 +45,7 @@ func (r *UsersRepository) GetAll(ctx context.Context) ([]domain.User, error) {
 
 func (r *UsersRepository) Update(ctx context.Context, user *domain.User) error {
 	query := `UPDATE users SET name = :name, email = :email, password = :password, updated_at = :updated_at WHERE id = :id`
-	user.UpdatedAt = time.Now().UTC()
+	user.UpdatedAt = time.Now().In(time.Local)
 	return r.db.Update(ctx, query, user)
 }
 

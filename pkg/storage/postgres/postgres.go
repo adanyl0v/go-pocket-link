@@ -2,15 +2,15 @@ package postgres
 
 import (
 	"context"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
 	"go-pocket-link/pkg/errb"
 	"time"
 )
 
 var b = errb.Default()
 
-const driverName = "postgres"
+const driverName = "pgx"
 
 type Options struct {
 	MaxOpenConns    int
@@ -76,6 +76,20 @@ func (db *DB) Get(ctx context.Context, dest any, query string, args ...any) erro
 	defer func() { _ = stmt.Close() }()
 
 	err = stmt.GetContext(ctx, dest, args...)
+	if err != nil {
+		return b.Errorf("exec `%s`: %v", query, err)
+	}
+	return nil
+}
+
+func (db *DB) GetNamed(ctx context.Context, dest any, query string, arg any) error {
+	stmt, err := db.db.PrepareNamedContext(ctx, query)
+	if err != nil {
+		return b.Errorf("prepare `%s`: %v", query, err)
+	}
+	defer func() { _ = stmt.Close() }()
+
+	err = stmt.GetContext(ctx, dest, arg)
 	if err != nil {
 		return b.Errorf("exec `%s`: %v", query, err)
 	}

@@ -7,6 +7,7 @@ CREATE TABLE sessions (
     user_id uuid NOT NULL UNIQUE,
     refresh_token VARCHAR NOT NULL UNIQUE,
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     FOREIGN KEY (user_id)
         REFERENCES users(id)
         ON DELETE CASCADE

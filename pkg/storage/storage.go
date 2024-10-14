@@ -21,6 +21,7 @@ type DB interface {
 type Saver interface {
 	// Save data from arg, which must be a struct and return the last inserted id if available.
 	// The result is stored in dest if dest is not nil.
+	// 
 	// Example: save an application user and return his new id (postgresql):
 	//
 	//	type User struct {
@@ -39,7 +40,10 @@ type Getter interface {
 	// Get matching row and store it into dest, which must be a struct
 	Get(ctx context.Context, dest any, query string, args ...any) error
 
-	// GetAll all matching rows and store them into dest, which must be a slice pointer
+	// GetNamed matching row and store it into dest. Dest and arg must be structs
+	GetNamed(ctx context.Context, dest any, query string, arg any) error
+
+	// GetAll matching rows and store them into dest, which must be a slice pointer
 	GetAll(ctx context.Context, dest any, query string, args ...any) error
 }
 

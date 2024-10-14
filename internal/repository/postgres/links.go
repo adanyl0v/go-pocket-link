@@ -17,28 +17,20 @@ func NewLinksRepository(db storage.DB) *LinksRepository {
 }
 
 func (r *LinksRepository) Save(ctx context.Context, link *domain.Link) error {
-	query := `INSERT INTO links (title, url, user_id) VALUES (:title, :url, :user_id)`
+	query := `INSERT INTO links (title, url, user_id, created_at, updated_at) VALUES (:title, :url, :user_id, :created_at, :updated_at)`
+	link.CreatedAt = time.Now().In(time.Local)
+	link.UpdatedAt = link.CreatedAt
 	return r.db.Save(ctx, &link.ID, query, link)
 }
 
 func (r *LinksRepository) GetByID(ctx context.Context, dest *domain.Link) error {
-	query := `SELECT * FROM links WHERE id = $1`
-	return r.db.Get(ctx, dest, query, dest.ID)
-}
-
-func (r *LinksRepository) GetByTitle(ctx context.Context, title string) ([]domain.Link, error) {
-	query := `SELECT * FROM links WHERE title = $1`
-	var links []domain.Link
-	err := r.db.GetAll(ctx, &links, query, title)
-	if err != nil {
-		return nil, err
-	}
-	return links, nil
+	query := `SELECT * FROM links WHERE id = :id`
+	return r.db.GetNamed(ctx, dest, query, dest)
 }
 
 func (r *LinksRepository) GetByURL(ctx context.Context, dest *domain.Link) error {
-	query := `SELECT * FROM links WHERE url = $1`
-	return r.db.Get(ctx, dest, query, dest.ID)
+	query := `SELECT * FROM links WHERE user_id = :user_id AND url = :url`
+	return r.db.GetNamed(ctx, dest, query, dest)
 }
 
 func (r *LinksRepository) GetAll(ctx context.Context) ([]domain.Link, error) {
@@ -51,10 +43,20 @@ func (r *LinksRepository) GetAll(ctx context.Context) ([]domain.Link, error) {
 	return links, nil
 }
 
-func (r *LinksRepository) GetAllByUserID(ctx context.Context, id uuid.UUID) ([]domain.Link, error) {
+func (r *LinksRepository) GetAllByUserID(ctx context.Context, userID uuid.UUID) ([]domain.Link, error) {
 	query := `SELECT * FROM links WHERE user_id = $1`
 	var links []domain.Link
-	err := r.db.GetAll(ctx, &links, query, id)
+	err := r.db.GetAll(ctx, &links, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	return links, nil
+}
+
+func (r *LinksRepository) GetAllByTitle(ctx context.Context, userID uuid.UUID, title string) ([]domain.Link, error) {
+	query := `SELECT * FROM links WHERE user_id = $1 AND title = $2`
+	var links []domain.Link
+	err := r.db.GetAll(ctx, &links, query, userID, title)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +65,7 @@ func (r *LinksRepository) GetAllByUserID(ctx context.Context, id uuid.UUID) ([]d
 
 func (r *LinksRepository) Update(ctx context.Context, link *domain.Link) error {
 	query := `UPDATE links SET title = :title, url = :url, updated_at = :updated_at WHERE id = :id`
-	link.UpdatedAt = time.Now().UTC()
+	link.UpdatedAt = time.Now().In(time.Local)
 	return r.db.Save(ctx, &link.ID, query, link)
 }
 

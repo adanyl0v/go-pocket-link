@@ -1,20 +1,25 @@
 package app
 
 import (
+	"context"
+	"crypto/tls"
+	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"go-pocket-link/internal/config"
-	"go-pocket-link/internal/domain"
+	httpdeliv "go-pocket-link/internal/delivery/http"
 	"go-pocket-link/internal/repository"
+	"go-pocket-link/internal/service"
 	"go-pocket-link/pkg/errb"
 	pgstor "go-pocket-link/pkg/storage/postgres"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 )
 
 func Run(configPath string) {
@@ -29,6 +34,23 @@ func Run(configPath string) {
 	log.Infoln("connected to postgres")
 
 	repos := repository.NewRepositories(pgDB)
+	var httpHandler *httpdeliv.Handler
+	{
+		var tlsConfig *tls.Config
+		if cfg.Env == config.EnvProd {
+			tlsConfig = &tls.Config{InsecureSkipVerify: true}
+		}
+		_ = repos //TODO remove me
+		emailNotifier, err := service.NewEmailNotifier(&service.EmailDialerOptions{
+			Username:  cfg.Email.Username,
+			Password:  cfg.Email.Password,
+			TLSConfig: tlsConfig,
+		})
+		if err != nil {
+			log.Fatalf("failed to create email notifier: %v", err)
+		}
+		httpHandler = httpdeliv.NewHandler(emailNotifier)
+	}
 
 	if cfg.Env != config.EnvLocal {
 		gin.SetMode(gin.ReleaseMode)
@@ -36,110 +58,9 @@ func Run(configPath string) {
 
 	router := gin.New()
 	router.Use(gin.Recovery())
-	if cfg.Env == config.EnvLocal {
-		router.Use(gin.Logger())
-	}
+	router.Use(gin.Logger())
 
-	api := router.Group("/api/v1")
-	{
-		repo := repos.Users
-		usersGroup := api.Group("/users")
-		usersGroup.GET("/", func(c *gin.Context) {
-			users, err := repo.GetAll(c)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{
-					"message": fmt.Sprintf("failed to get users: %v", err),
-				})
-				return
-			}
-
-			c.JSON(http.StatusOK, users)
-		})
-		usersGroup.GET("/:id", func(c *gin.Context) {
-			id, err := uuid.Parse(c.Param("id"))
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{
-					"message": fmt.Sprintf("failed to get id: %v", err),
-				})
-				return
-			}
-
-			u := domain.User{ID: id}
-			err = repo.GetByID(c, &u)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"message": fmt.Sprintf("failed to get user: %v", err),
-				})
-				return
-			}
-
-			c.JSON(http.StatusOK, u)
-		})
-		usersGroup.POST("/", func(c *gin.Context) {
-			var u domain.User
-			err := c.Bind(&u)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"message": fmt.Sprintf("failed to bind user: %v", err),
-				})
-				return
-			}
-
-			err = repo.Save(c, &u)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"message": fmt.Sprintf("failed to save user: %v", err),
-				})
-				return
-			}
-
-			c.Status(http.StatusCreated)
-		})
-		usersGroup.PUT("/:id", func(c *gin.Context) {
-			id, err := uuid.Parse(c.Param("id"))
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{
-					"message": fmt.Sprintf("failed to get id: %v", err),
-				})
-				return
-			}
-
-			var u domain.User
-			err = c.Bind(&u)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"message": fmt.Sprintf("failed to bind user: %v", err),
-				})
-				return
-			}
-
-			u.ID = id
-			err = repo.Update(c, &u)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"message": fmt.Sprintf("failed to update user: %v", err),
-				})
-				return
-			}
-		})
-		usersGroup.DELETE("/:id", func(c *gin.Context) {
-			id, err := uuid.Parse(c.Param("id"))
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{
-					"message": fmt.Sprintf("failed to get id: %v", err),
-				})
-				return
-			}
-
-			err = repo.Delete(c, id)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"message": fmt.Sprintf("failed to delete user: %v", err),
-				})
-				return
-			}
-		})
-	}
+	httpHandler.Init(router.Group("/api/v1"))
 
 	log.Infof("listening to %s:%d...\n", cfg.Server.Host, cfg.Server.Port)
 	server := http.Server{
@@ -149,10 +70,8 @@ func Run(configPath string) {
 		WriteTimeout: cfg.Server.WriteTimeout,
 		IdleTimeout:  cfg.Server.IdleTimeout,
 	}
-	err := server.ListenAndServe()
-	if err != nil {
-		log.Fatalln("failed to start server:", err)
-	}
+
+	mustRunServer(&server)
 }
 
 func mustReadConfig(r config.Reader) *config.Config {
@@ -198,4 +117,23 @@ func mustSetupDB(cfg config.DB) *pgstor.DB {
 		log.Fatalln("failed to connect to postgres:", err)
 	}
 	return db
+}
+
+func mustRunServer(server *http.Server) {
+	serveCtx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	go func() {
+		err := server.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalln("failed to start server:", err)
+		}
+	}()
+
+	<-serveCtx.Done()
+	log.Infoln("shutting down server...")
+	if err := server.Shutdown(context.Background()); err != nil {
+		log.Fatalln("failed to shutdown server gracefully:", err)
+	}
+	log.Infoln("success")
 }
