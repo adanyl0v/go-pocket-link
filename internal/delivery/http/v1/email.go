@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 	"go-pocket-link/internal/service"
+	"go-pocket-link/internal/service/email"
 	"net/http"
 )
 
@@ -39,7 +40,7 @@ func (h *EmailHandler) Send() gin.HandlerFunc {
 			})
 			return
 		}
-		h.notifier.AddMessage(service.EmailMessage{
+		err = h.notifier.Send(c, email.Message{
 			From:    h.notifier.DialerUsername(),
 			To:      inp.To,
 			Cc:      inp.Cc,
@@ -48,7 +49,6 @@ func (h *EmailHandler) Send() gin.HandlerFunc {
 			Type:    inp.Type,
 			Body:    inp.Body,
 		})
-		err = h.notifier.Send(c)
 		if err != nil {
 			err = fmt.Errorf("failed to send an email: %v", err)
 			log.Errorln(err)

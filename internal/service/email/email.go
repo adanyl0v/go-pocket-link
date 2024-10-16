@@ -1,35 +1,29 @@
-package service
+package email
 
 import (
 	"context"
 	"crypto/tls"
 	"fmt"
 	"github.com/go-mail/mail"
+	"go-pocket-link/internal/service"
 )
 
-type EmailNotifier interface {
-	DialerUsername() string
-	AddMessage(message EmailMessage)
-	Send(ctx context.Context) error
+type notifierImpl struct {
+	dialer *mail.Dialer
 }
 
-type emailNotifierImpl struct {
-	dialer   *mail.Dialer
-	messages []*mail.Message
-}
-
-type EmailDialerOptions struct {
+type DialerOptions struct {
 	Username  string
 	Password  string
 	TLSConfig *tls.Config
 }
 
 const (
-	EmailTypeText = "text/plain"
-	EmailTypeHTML = "text/html"
+	TypeText = "text/plain"
+	TypeHTML = "text/html"
 )
 
-type EmailMessage struct {
+type Message struct {
 	From    string   `json:"from"`
 	To      string   `json:"to"`
 	Cc      []string `json:"cc,omitempty"`
@@ -39,7 +33,7 @@ type EmailMessage struct {
 	Body    string   `json:"body"`
 }
 
-func NewEmailNotifier(dialerOpts *EmailDialerOptions) (EmailNotifier, error) {
+func NewNotifier(dialerOpts *DialerOptions) (service.EmailNotifier, error) {
 	if dialerOpts == nil {
 		return nil, fmt.Errorf("no dialer options provided")
 	}
@@ -47,14 +41,27 @@ func NewEmailNotifier(dialerOpts *EmailDialerOptions) (EmailNotifier, error) {
 	if dialerOpts.TLSConfig != nil {
 		dialer.TLSConfig = dialerOpts.TLSConfig
 	}
-	return &emailNotifierImpl{dialer: dialer}, nil
+	return &notifierImpl{dialer: dialer}, nil
 }
 
-func (n *emailNotifierImpl) DialerUsername() string {
+func (n *notifierImpl) DialerUsername() string {
 	return n.dialer.Username
 }
 
-func (n *emailNotifierImpl) AddMessage(message EmailMessage) {
+func (n *notifierImpl) Send(ctx context.Context, message Message) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		err := n.dialer.DialAndSend(n.newMassage(&message))
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+}
+
+func (n *notifierImpl) newMassage(message *Message) *mail.Message {
 	m := mail.NewMessage()
 	m.SetHeader("From", message.From)
 	m.SetHeader("To", message.To)
@@ -66,19 +73,5 @@ func (n *emailNotifierImpl) AddMessage(message EmailMessage) {
 	}
 	m.SetHeader("Subject", message.Subject)
 	m.SetBody(message.Type, message.Body)
-	n.messages = append(n.messages, m)
-}
-
-func (n *emailNotifierImpl) Send(ctx context.Context) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-		err := n.dialer.DialAndSend(n.messages...)
-		if err != nil {
-			return err
-		}
-		n.messages = n.messages[:0]
-		return nil
-	}
+	return m
 }

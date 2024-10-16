@@ -10,7 +10,7 @@ import (
 	"go-pocket-link/internal/config"
 	httpdeliv "go-pocket-link/internal/delivery/http"
 	"go-pocket-link/internal/repository"
-	"go-pocket-link/internal/service"
+	"go-pocket-link/internal/service/email"
 	"go-pocket-link/pkg/errb"
 	pgstor "go-pocket-link/pkg/storage/postgres"
 	"net/http"
@@ -41,7 +41,7 @@ func Run(configPath string) {
 			tlsConfig = &tls.Config{InsecureSkipVerify: true}
 		}
 		_ = repos //TODO remove me
-		emailNotifier, err := service.NewEmailNotifier(&service.EmailDialerOptions{
+		emailNotifier, err := email.NewNotifier(&email.DialerOptions{
 			Username:  cfg.Email.Username,
 			Password:  cfg.Email.Password,
 			TLSConfig: tlsConfig,
