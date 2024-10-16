@@ -6,17 +6,25 @@ import (
 	"time"
 )
 
+type TokenPair struct {
+	AccessToken  string
+	RefreshToken string
+}
+
 type TokenManager interface {
-	NewAccessToken(sub string, ttl time.Duration) (string, error)
-	NewRefreshToken(sub string, ttl time.Duration) (string, error)
-	Parse(accessToken string) (jwt5.Claims, error)
+	// CreateAccessToken with "sub" claims used to store a user ID
+	CreateAccessToken(sub string, ttl time.Duration) (string, error)
+	// CreateRefreshToken with "sub" claims used to store a user ID
+	CreateRefreshToken(sub string, ttl time.Duration) (string, error)
+	// Parse access token and return "sub" claim
+	Parse(accessToken string) (string, error)
 }
 
 type tokenManagerImpl struct {
 	secret []byte
 }
 
-func NewJWTManager(secret []byte) TokenManager {
+func NewTokenManager(secret []byte) TokenManager {
 	return &tokenManagerImpl{secret: secret}
 }
 
@@ -25,7 +33,7 @@ const (
 	claimExpiresAt = "exp"
 )
 
-func (m *tokenManagerImpl) NewAccessToken(sub string, ttl time.Duration) (string, error) {
+func (m *tokenManagerImpl) CreateAccessToken(sub string, ttl time.Duration) (string, error) {
 	tok, err := m.newToken(jwt5.MapClaims{
 		claimSubject:   sub,
 		claimExpiresAt: time.Now().Add(ttl).Unix(),
@@ -36,7 +44,7 @@ func (m *tokenManagerImpl) NewAccessToken(sub string, ttl time.Duration) (string
 	return tok, nil
 }
 
-func (m *tokenManagerImpl) NewRefreshToken(sub string, ttl time.Duration) (string, error) {
+func (m *tokenManagerImpl) CreateRefreshToken(sub string, ttl time.Duration) (string, error) {
 	tok, err := m.newToken(jwt5.MapClaims{
 		claimSubject:   sub,
 		claimExpiresAt: time.Now().Add(ttl).Unix(),
@@ -47,7 +55,7 @@ func (m *tokenManagerImpl) NewRefreshToken(sub string, ttl time.Duration) (strin
 	return tok, nil
 }
 
-func (m *tokenManagerImpl) Parse(accessToken string) (jwt5.Claims, error) {
+func (m *tokenManagerImpl) Parse(accessToken string) (string, error) {
 	token, err := jwt5.Parse(accessToken, func(token *jwt5.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt5.SigningMethodHMAC); !ok {
 			return nil, errb.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -55,18 +63,18 @@ func (m *tokenManagerImpl) Parse(accessToken string) (jwt5.Claims, error) {
 		return m.secret, nil
 	})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	if !token.Valid {
-		return nil, errb.Errorf("invalid token")
+		return "", errb.Errorf("invalid token")
 	}
 
 	claims, ok := token.Claims.(jwt5.MapClaims)
 	if !ok {
-		return nil, errb.Errorf("unexpected claims: %v", token.Claims)
+		return "", errb.Errorf("unexpected claims: %v", token.Claims)
 	}
-	return claims, nil
+	return claims[claimSubject].(string), nil
 }
 
 func (m *tokenManagerImpl) newToken(claims jwt5.Claims) (string, error) {

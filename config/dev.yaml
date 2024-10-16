@@ -8,9 +8,6 @@ server:
   idle_timeout: 10s
 
 db:
-  host: "postgres_db"
-  port: 5432
-  name: "go_pocket_link"
   ssl_mode: "disable"
   max_open_conns: 20
   max_idle_conns: 10

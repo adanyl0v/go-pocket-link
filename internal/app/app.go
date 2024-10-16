@@ -10,7 +10,8 @@ import (
 	"go-pocket-link/internal/config"
 	httpdeliv "go-pocket-link/internal/delivery/http"
 	"go-pocket-link/internal/repository"
-	"go-pocket-link/internal/service/email"
+	"go-pocket-link/internal/service"
+	"go-pocket-link/pkg/email"
 	"go-pocket-link/pkg/errb"
 	pgstor "go-pocket-link/pkg/storage/postgres"
 	"net/http"
@@ -36,24 +37,14 @@ func Run(configPath string) {
 	repos := repository.NewRepositories(pgDB)
 	var httpHandler *httpdeliv.Handler
 	{
-		var tlsConfig *tls.Config
-		if cfg.Env == config.EnvProd {
-			tlsConfig = &tls.Config{InsecureSkipVerify: true}
-		}
 		_ = repos //TODO remove me
-		emailNotifier, err := email.NewNotifier(&email.DialerOptions{
-			Username:  cfg.Email.Username,
-			Password:  cfg.Email.Password,
-			TLSConfig: tlsConfig,
-		})
-		if err != nil {
-			log.Fatalf("failed to create email notifier: %v", err)
-		}
-		httpHandler = httpdeliv.NewHandler(emailNotifier)
-	}
-
-	if cfg.Env != config.EnvLocal {
-		gin.SetMode(gin.ReleaseMode)
+		httpHandler = httpdeliv.NewHandler(
+			service.NewEmailService(email.NewSMTPDialer(
+				cfg.Email.Username,
+				cfg.Email.Password,
+				&tls.Config{InsecureSkipVerify: true},
+			)),
+		)
 	}
 
 	router := gin.New()

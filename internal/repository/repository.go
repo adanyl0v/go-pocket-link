@@ -48,10 +48,9 @@ type SessionsRepository interface {
 	// Save link and store its ID in [domain.Session.ID]
 	Save(ctx context.Context, session *domain.Session) error
 	GetByID(ctx context.Context, dest *domain.Session) error
+	GetByUserID(ctx context.Context, dest *domain.Session) error
 	GetByRefreshToken(ctx context.Context, dest *domain.Session) error
 	GetAll(ctx context.Context) ([]domain.Session, error)
-	GetAllByUserID(ctx context.Context, id uuid.UUID) ([]domain.Session, error)
 	Update(ctx context.Context, session *domain.Session) error
 	Delete(ctx context.Context, id uuid.UUID) error
-	//DeleteByRefreshToken(ctx context.Context, token string) error
 }

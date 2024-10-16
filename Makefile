@@ -1,11 +1,13 @@
 include .env
 
 POSTGRES_MIGRATIONS_PATH=./storage/postgres/migrations
-POSTGRES_DSN="postgres://${POSTGRES_USER}:${POSTGRES_PASS}@localhost:5432/go_pocket_link?sslmode=disable"
+POSTGRES_DSN="postgres://${POSTGRES_USER}:${POSTGRES_PASS}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_NAME}?sslmode=disable"
 
-APP_EXECUTABLE=./bin/go-pocket-link
+APP_EXECUTABLE=./.bin/go-pocket-link
 
-all:
+all: deploy up
+
+local:
 	@echo "\n- [+] Applying migrations..."
 	goose -dir $(POSTGRES_MIGRATIONS_PATH) postgres $(POSTGRES_DSN) up
 	@echo "\n- [+] Building the application..."
@@ -13,16 +15,20 @@ all:
 	@echo "- [+] Running the application..."
 	$(APP_EXECUTABLE)
 
+deploy:
+	@echo "\n- [+] Building Docker containers..."
+	docker-compose build
+
 up:
-	@echo "\n- [+] Running docker containers"
+	@echo "\n- [+] Running Docker containers..."
 	docker-compose up -d
 
-up_build:
-	@echo "\n- [+] Running docker containers after build"
-	docker-compose up --build -d
+stop:
+	@echo "\n- [+] Stopping Docker containers..."
+	docker-compose stop
 
 down:
-	@echo "\n- [+] Stopping docker containers"
+	@echo "\n- [+] Deleting Docker containers..."
 	docker-compose down
 
-.SILENT: all up up_build down
+.SILENT: local deploy up stop down

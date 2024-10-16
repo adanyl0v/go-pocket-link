@@ -2,6 +2,8 @@ ARG GO_VERSION=1.23.1
 FROM golang:${GO_VERSION}-alpine AS build
 WORKDIR /app
 
+ENV CGO_ENABLED=0
+
 RUN --mount=type=cache,target=/go/pkg/mod/ \
      --mount=type=bind,source=go.sum,target=go.sum \
      --mount=type=bind,source=go.mod,target=go.mod \
@@ -9,7 +11,7 @@ RUN --mount=type=cache,target=/go/pkg/mod/ \
 
 RUN --mount=type=cache,target=/go/pkg/mod/ \
     --mount=type=bind,target=. \
-    CGO_ENABLED=0 go build -o /bin/server ./cmd/app/main.go
+    go build -o /bin/server ./cmd/app/main.go
 
 FROM alpine:latest AS final
 
