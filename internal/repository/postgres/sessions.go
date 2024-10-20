@@ -18,27 +18,29 @@ func NewSessionsRepository(db storage.DB) *SessionsRepository {
 
 func (r *SessionsRepository) Save(ctx context.Context, session *domain.Session) error {
 	query := `INSERT INTO sessions (user_id, refresh_token, expires_at, created_at) VALUES (:user_id, :refresh_token, :expires_at, :created_at) RETURNING id`
-	session.CreatedAt = time.Now().In(time.Local)
+	session.CreatedAt = time.Now().UTC()
 	return r.db.Save(ctx, &session.ID, query, session)
 }
 
-func (r *SessionsRepository) GetByID(ctx context.Context, dest *domain.Session) error {
-	query := `SELECT * FROM sessions WHERE id = :id`
-	return r.db.GetNamed(ctx, dest, query, dest)
+func (r *SessionsRepository) GetByID(ctx context.Context, id uuid.UUID) (domain.Session, error) {
+	var session domain.Session
+	query := `SELECT * FROM sessions WHERE id = $1`
+	err := r.db.Get(ctx, &session, query, id)
+	return session, err
 }
 
-func (r *SessionsRepository) GetByUserID(ctx context.Context, dest *domain.Session) error {
+func (r *SessionsRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (domain.Session, error) {
+	var session domain.Session
 	query := `SELECT * FROM sessions WHERE user_id = $1`
-	err := r.db.GetNamed(ctx, dest, query, dest)
-	if err != nil {
-		return err
-	}
-	return nil
+	err := r.db.Get(ctx, &session, query, userID)
+	return session, err
 }
 
-func (r *SessionsRepository) GetByRefreshToken(ctx context.Context, dest *domain.Session) error {
-	query := `SELECT * FROM sessions WHERE refresh_token = :refresh_token`
-	return r.db.GetNamed(ctx, dest, query, dest)
+func (r *SessionsRepository) GetByRefreshToken(ctx context.Context, token string) (domain.Session, error) {
+	var session domain.Session
+	query := `SELECT * FROM sessions WHERE refresh_token = $1`
+	err := r.db.Get(ctx, &session, query, token)
+	return session, err
 }
 
 func (r *SessionsRepository) GetAll(ctx context.Context) ([]domain.Session, error) {

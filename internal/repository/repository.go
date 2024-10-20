@@ -25,8 +25,8 @@ func NewRepositories(db storage.DB) *Repositories {
 type UsersRepository interface {
 	// Save user and store his ID in [domain.User.ID]
 	Save(ctx context.Context, user *domain.User) error
-	GetByID(ctx context.Context, dest *domain.User) error
-	GetByCredentials(ctx context.Context, dest *domain.User) error
+	GetByID(ctx context.Context, id uuid.UUID) (domain.User, error)
+	GetByCredentials(ctx context.Context, email, password string) (domain.User, error)
 	GetAll(ctx context.Context) ([]domain.User, error)
 	Update(ctx context.Context, user *domain.User) error
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -35,8 +35,8 @@ type UsersRepository interface {
 type LinksRepository interface {
 	// Save link and store its ID in [domain.Link.ID]
 	Save(ctx context.Context, link *domain.Link) error
-	GetByID(ctx context.Context, dest *domain.Link) error
-	GetByURL(ctx context.Context, dest *domain.Link) error
+	GetByID(ctx context.Context, id uuid.UUID) (domain.Link, error)
+	GetByURL(ctx context.Context, userID uuid.UUID, URL string) (domain.Link, error)
 	GetAll(ctx context.Context) ([]domain.Link, error)
 	GetAllByUserID(ctx context.Context, userID uuid.UUID) ([]domain.Link, error)
 	GetAllByTitle(ctx context.Context, userID uuid.UUID, title string) ([]domain.Link, error)
@@ -47,9 +47,9 @@ type LinksRepository interface {
 type SessionsRepository interface {
 	// Save link and store its ID in [domain.Session.ID]
 	Save(ctx context.Context, session *domain.Session) error
-	GetByID(ctx context.Context, dest *domain.Session) error
-	GetByUserID(ctx context.Context, dest *domain.Session) error
-	GetByRefreshToken(ctx context.Context, dest *domain.Session) error
+	GetByID(ctx context.Context, id uuid.UUID) (domain.Session, error)
+	GetByUserID(ctx context.Context, userID uuid.UUID) (domain.Session, error)
+	GetByRefreshToken(ctx context.Context, token string) (domain.Session, error)
 	GetAll(ctx context.Context) ([]domain.Session, error)
 	Update(ctx context.Context, session *domain.Session) error
 	Delete(ctx context.Context, id uuid.UUID) error

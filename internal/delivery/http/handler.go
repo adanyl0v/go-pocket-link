@@ -4,29 +4,21 @@ import (
 	"github.com/gin-gonic/gin"
 	"go-pocket-link/internal/delivery/http/v1"
 	"go-pocket-link/internal/service"
-	"net/http"
 )
 
+type EndpointsInitializer interface {
+	InitEndpoints(parent *gin.RouterGroup)
+}
+
 type Handler struct {
-	emailService *service.EmailService
+	v1Handler EndpointsInitializer
 }
 
-func NewHandler(email *service.EmailService) *Handler {
-	return &Handler{emailService: email}
+func NewHandler(services *service.Services) *Handler {
+	return &Handler{v1Handler: v1.NewHandler(services)}
 }
 
-func (h *Handler) Init(api *gin.RouterGroup) {
-	api.GET("/ping", h.handlePing())
-
-	emailGroup := api.Group("/email")
-	{
-		handler := v1.NewEmailHandler(h.emailService)
-		emailGroup.POST("/send", handler.Send())
-	}
-}
-
-func (h *Handler) handlePing() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "pong"})
-	}
+func (h *Handler) InitRoutes(router *gin.Engine) {
+	apiGroupV1 := router.Group("/api/v1")
+	h.v1Handler.InitEndpoints(apiGroupV1)
 }

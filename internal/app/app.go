@@ -11,6 +11,7 @@ import (
 	httpdeliv "go-pocket-link/internal/delivery/http"
 	"go-pocket-link/internal/repository"
 	"go-pocket-link/internal/service"
+	"go-pocket-link/pkg/crypto/hash"
 	"go-pocket-link/pkg/email"
 	"go-pocket-link/pkg/errb"
 	pgstor "go-pocket-link/pkg/storage/postgres"
@@ -23,6 +24,8 @@ import (
 	"syscall"
 )
 
+const envHashSalt = "HASH_SALT"
+
 func Run(configPath string) {
 	cfg := mustReadConfig(config.NewFileReader(configPath))
 	mustSetupLogger(cfg.Env)
@@ -30,20 +33,20 @@ func Run(configPath string) {
 	log.Infof("read config '%s'\n", configPath)
 	log.Infof("set up logger with '%s' env\n", cfg.Env)
 
-	pgDB := mustSetupDB(cfg.DB)
-	defer func() { _ = pgDB.Close() }()
+	db := mustSetupDB(cfg.DB)
+	defer func() { _ = db.Close() }()
 	log.Infoln("connected to postgres")
 
-	repos := repository.NewRepositories(pgDB)
+	repos := repository.NewRepositories(db)
 	var httpHandler *httpdeliv.Handler
 	{
-		_ = repos //TODO remove me
 		httpHandler = httpdeliv.NewHandler(
-			service.NewEmailService(email.NewSMTPDialer(
-				cfg.Email.Username,
-				cfg.Email.Password,
-				&tls.Config{InsecureSkipVerify: true},
-			)),
+			service.NewServices(
+				service.NewUsersService(repos.Users, hash.NewSHA1Hasher([]byte(os.Getenv(envHashSalt)))),
+				service.NewLinksService(repos.Links),
+				service.NewEmailService(email.NewSMTPDialer(cfg.Email.Username,
+					cfg.Email.Password, &tls.Config{InsecureSkipVerify: true})),
+			),
 		)
 	}
 
@@ -51,7 +54,7 @@ func Run(configPath string) {
 	router.Use(gin.Recovery())
 	router.Use(gin.Logger())
 
-	httpHandler.Init(router.Group("/api/v1"))
+	httpHandler.InitRoutes(router)
 
 	log.Infof("listening to %s:%d...\n", cfg.Server.Host, cfg.Server.Port)
 	server := http.Server{

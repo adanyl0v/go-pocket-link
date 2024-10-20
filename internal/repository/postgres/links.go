@@ -17,20 +17,23 @@ func NewLinksRepository(db storage.DB) *LinksRepository {
 }
 
 func (r *LinksRepository) Save(ctx context.Context, link *domain.Link) error {
-	query := `INSERT INTO links (title, url, user_id, created_at, updated_at) VALUES (:title, :url, :user_id, :created_at, :updated_at)`
-	link.CreatedAt = time.Now().In(time.Local)
-	link.UpdatedAt = link.CreatedAt
+	query := `INSERT INTO links (title, url, user_id, created_at) VALUES (:title, :url, :user_id, :created_at) RETURNING id`
+	link.CreatedAt = time.Now().UTC()
 	return r.db.Save(ctx, &link.ID, query, link)
 }
 
-func (r *LinksRepository) GetByID(ctx context.Context, dest *domain.Link) error {
-	query := `SELECT * FROM links WHERE id = :id`
-	return r.db.GetNamed(ctx, dest, query, dest)
+func (r *LinksRepository) GetByID(ctx context.Context, id uuid.UUID) (domain.Link, error) {
+	var link domain.Link
+	query := `SELECT * FROM links WHERE id = $1`
+	err := r.db.Get(ctx, &link, query, id)
+	return link, err
 }
 
-func (r *LinksRepository) GetByURL(ctx context.Context, dest *domain.Link) error {
-	query := `SELECT * FROM links WHERE user_id = :user_id AND url = :url`
-	return r.db.GetNamed(ctx, dest, query, dest)
+func (r *LinksRepository) GetByURL(ctx context.Context, userID uuid.UUID, URL string) (domain.Link, error) {
+	var link domain.Link
+	query := `SELECT * FROM links WHERE user_id = $1 AND url = $2`
+	err := r.db.Get(ctx, &link, query, userID, URL)
+	return link, err
 }
 
 func (r *LinksRepository) GetAll(ctx context.Context) ([]domain.Link, error) {
@@ -64,9 +67,8 @@ func (r *LinksRepository) GetAllByTitle(ctx context.Context, userID uuid.UUID, t
 }
 
 func (r *LinksRepository) Update(ctx context.Context, link *domain.Link) error {
-	query := `UPDATE links SET title = :title, url = :url, updated_at = :updated_at WHERE id = :id`
-	link.UpdatedAt = time.Now().In(time.Local)
-	return r.db.Save(ctx, &link.ID, query, link)
+	query := `UPDATE links SET title = :title, url = :url WHERE id = :id`
+	return r.db.Update(ctx, query, link)
 }
 
 func (r *LinksRepository) Delete(ctx context.Context, id uuid.UUID) error {

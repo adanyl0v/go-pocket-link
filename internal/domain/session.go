@@ -11,4 +11,5 @@ type Session struct {
 	RefreshToken string    `json:"refresh_token" db:"refresh_token"`
 	ExpiresAt    time.Time `json:"expires_at" db:"expires_at"`
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+	IsInvoked    bool      `json:"is_invoked" db:"is_invoked"`
 }

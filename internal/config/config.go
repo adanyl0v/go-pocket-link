@@ -38,7 +38,7 @@ type DB struct {
 	User            string        `env:"POSTGRES_USER" env-required:"true"`
 	Pass            string        `env:"POSTGRES_PASS" env-required:"true"`
 	Name            string        `env:"POSTGRES_NAME" env-required:"true"`
-	SslMode         string        `yaml:"ssl_mode" env-default:"disable"`
+	SslMode         string        `env:"POSTGRES_SSL_MODE" env-default:"disable"`
 	MaxOpenConns    int           `yaml:"max_open_conns" env-default:"10"`
 	MaxIdleConns    int           `yaml:"max_idle_conns" env-default:"10"`
 	ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime" env-default:"10s"`
@@ -50,8 +50,11 @@ func (p *DB) DSN() string {
 		p.User, p.Pass, p.Host, p.Port, p.Name, p.SslMode)
 }
 
+type Hash struct {
+	Salt string `env:"HASH_SALT" env-required:"true"`
+}
+
 type Auth struct {
-	Salt            string        `env:"AUTH_SALT" env-required:"true"`
 	Secret          string        `env:"AUTH_SECRET" env-required:"true"`
 	AccessTokenTTL  time.Duration `yaml:"access_token_ttl" env-required:"true"`
 	RefreshTokenTTL time.Duration `yaml:"refresh_token_ttl" env-required:"true"`

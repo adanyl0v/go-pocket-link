@@ -17,20 +17,23 @@ func NewUsersRepository(db storage.DB) *UsersRepository {
 }
 
 func (r *UsersRepository) Save(ctx context.Context, user *domain.User) error {
-	query := `INSERT INTO users (name, email, password, created_at, updated_at) VALUES (:name, :email, :password, :created_at, :updated_at) RETURNING id`
-	user.CreatedAt = time.Now().In(time.Local)
-	user.UpdatedAt = user.CreatedAt
+	query := `INSERT INTO users (name, email, password, created_at) VALUES (:name, :email, :password, :created_at) RETURNING id`
+	user.CreatedAt = time.Now().UTC()
 	return r.db.Save(ctx, &user.ID, query, user)
 }
 
-func (r *UsersRepository) GetByID(ctx context.Context, dest *domain.User) error {
-	query := `SELECT * FROM users WHERE id = :id`
-	return r.db.GetNamed(ctx, dest, query, dest)
+func (r *UsersRepository) GetByID(ctx context.Context, id uuid.UUID) (domain.User, error) {
+	var user domain.User
+	query := `SELECT * FROM users WHERE id = $1`
+	err := r.db.Get(ctx, &user, query, id)
+	return user, err
 }
 
-func (r *UsersRepository) GetByCredentials(ctx context.Context, dest *domain.User) error {
-	query := `SELECT * FROM users WHERE email = :email AND password = :password`
-	return r.db.GetNamed(ctx, dest, query, dest)
+func (r *UsersRepository) GetByCredentials(ctx context.Context, email, password string) (domain.User, error) {
+	var user domain.User
+	query := `SELECT * FROM users WHERE email = $1 AND password = $2`
+	err := r.db.Get(ctx, &user, query, email, password)
+	return user, err
 }
 
 func (r *UsersRepository) GetAll(ctx context.Context) ([]domain.User, error) {
@@ -44,8 +47,7 @@ func (r *UsersRepository) GetAll(ctx context.Context) ([]domain.User, error) {
 }
 
 func (r *UsersRepository) Update(ctx context.Context, user *domain.User) error {
-	query := `UPDATE users SET name = :name, email = :email, password = :password, updated_at = :updated_at WHERE id = :id`
-	user.UpdatedAt = time.Now().In(time.Local)
+	query := `UPDATE users SET name = :name, email = :email, password = :password WHERE id = :id`
 	return r.db.Update(ctx, query, user)
 }
 
