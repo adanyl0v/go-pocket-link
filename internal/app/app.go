@@ -44,8 +44,10 @@ func Run(configPath string) {
 			service.NewServices(
 				service.NewUsersService(repos.Users, hash.NewSHA1Hasher([]byte(os.Getenv(envHashSalt)))),
 				service.NewLinksService(repos.Links),
+				service.NewSessionsService(repos.Sessions),
 				service.NewEmailService(email.NewSMTPDialer(cfg.Email.Username,
-					cfg.Email.Password, &tls.Config{InsecureSkipVerify: true})),
+					cfg.Email.Password, &tls.Config{InsecureSkipVerify: true}),
+					cfg.Email.TemplatesDir),
 			),
 		)
 	}

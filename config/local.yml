@@ -16,3 +16,6 @@ db:
 auth:
   access_token_ttl: 10m
   refresh_token_ttl: 43200m # 30 days
+
+email:
+  templates_dir: "./templates/email"

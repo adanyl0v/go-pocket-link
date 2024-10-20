@@ -7,11 +7,15 @@ import (
 )
 
 type EmailService struct {
-	dialer email.Dialer
+	dialer       email.Dialer
+	TemplatesDir string
 }
 
-func NewEmailService(dialer email.Dialer) *EmailService {
-	return &EmailService{dialer: dialer}
+func NewEmailService(dialer email.Dialer, templatesDir string) *EmailService {
+	return &EmailService{
+		dialer:       dialer,
+		TemplatesDir: templatesDir,
+	}
 }
 
 func (s *EmailService) Send(ctx context.Context, messages ...email.Message) error {

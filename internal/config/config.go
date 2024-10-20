@@ -61,6 +61,7 @@ type Auth struct {
 }
 
 type Email struct {
-	Username string `env:"EMAIL_USERNAME" env-required:"true"`
-	Password string `env:"EMAIL_PASSWORD" env-required:"true"`
+	Username     string `env:"EMAIL_USERNAME" env-required:"true"`
+	Password     string `env:"EMAIL_PASSWORD" env-required:"true"`
+	TemplatesDir string `yaml:"templates_dir" env-required:"true"`
 }
