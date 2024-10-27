@@ -3,9 +3,9 @@ package config
 import "time"
 
 const (
-	envLocal = "local"
-	envProd  = "prod"
-	envDev   = "dev"
+	EnvLocal = "local"
+	EnvProd  = "prod"
+	EnvDev   = "dev"
 )
 
 type Reader interface {

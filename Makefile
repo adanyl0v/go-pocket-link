@@ -3,7 +3,7 @@ include .env
 POSTGRES_MIGRATIONS=./database/migrations/postgres
 POSTGRES_CONNECTION=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DATABASE}?sslmode=${POSTGRES_SSL_MODE}
 
-all: migrate_up
+all: build up migrate_up
 
 local: migrate_up
 	go run ./cmd/app/main.go
