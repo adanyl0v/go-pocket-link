@@ -18,5 +18,7 @@ RUN --mount=type=cache,target=/var/cache/apk apk --update \
 
 EXPOSE 8080
 
+COPY ./config/dev.yml ./config.yml
 COPY --from=build /app/go-pocket-link .
+
 ENTRYPOINT [ "./go-pocket-link" ]

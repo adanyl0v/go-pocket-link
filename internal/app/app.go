@@ -2,44 +2,38 @@ package app
 
 import (
 	"fmt"
-	"github.com/ilyakaznacheev/cleanenv"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
-	"github.com/joho/godotenv"
+	"go-pocket-link/internal/config"
 	"log"
 )
 
-var postgresConfig struct {
-	Host     string `env:"POSTGRES_HOST"`
-	Port     int    `env:"POSTGRES_PORT"`
-	User     string `env:"POSTGRES_USER"`
-	Password string `env:"POSTGRES_PASSWORD"`
-	DB       string `env:"POSTGRES_DATABASE"`
-	SSLMode  string `env:"POSTGRES_SSL_MODE"`
+func Run(configPath string) {
+	cfg := mustReadConfig(config.NewFileReader(configPath))
+	log.Println("read file", configPath)
+
+	postgresDB := mustConnectToPostgres(cfg)
+	defer func() { _ = postgresDB.Close() }()
 }
 
-func Run() {
-	_ = godotenv.Load()
-	err := cleanenv.ReadEnv(&postgresConfig)
+func mustReadConfig(reader config.Reader) *config.Config {
+	cfg, err := reader.Read()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
+	return cfg
+}
 
-	db := sqlx.MustConnect("pgx", fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
-		postgresConfig.User, postgresConfig.Password, postgresConfig.Host, postgresConfig.Port,
-		postgresConfig.DB, postgresConfig.SSLMode))
-	defer func() { _ = db.Close() }()
-
-	var users []struct {
-		Email string `db:"email"`
-	}
-	err = db.Select(&users, "SELECT * FROM users")
+func mustConnectToPostgres(cfg *config.Config) *sqlx.DB {
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
+		cfg.Storage.Postgres.User, cfg.Storage.Postgres.Password,
+		cfg.Storage.Postgres.Host, cfg.Storage.Postgres.Port,
+		cfg.Storage.Postgres.Name, cfg.Storage.Postgres.SslMode)
+	db, err := sqlx.Connect("pgx", dsn)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
-
-	log.Println("Fetched", len(users), "users:")
-	for _, user := range users {
-		log.Printf("- %s;\n", user.Email)
-	}
+	log.Println("connected to database", fmt.Sprintf("postgres://%s:%d/%s",
+		cfg.Storage.Postgres.Host, cfg.Storage.Postgres.Port, cfg.Storage.Postgres.Name))
+	return db
 }
