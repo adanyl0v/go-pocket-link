@@ -9,6 +9,7 @@ local: migrate_up
 	go run ./cmd/app/main.go
 
 migrate_up:
+	docker-compose up -d postgres
 	goose -dir $(POSTGRES_MIGRATIONS) postgres $(POSTGRES_CONNECTION) up
 	goose -dir $(POSTGRES_MIGRATIONS) postgres $(POSTGRES_CONNECTION) status
 

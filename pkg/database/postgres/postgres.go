@@ -22,7 +22,7 @@ type ConnOptions struct {
 func Connect(dataSourceName string, opts *ConnOptions) (*DB, error) {
 	sqlxDB, err := sqlx.Connect(driverName, dataSourceName)
 	if err != nil {
-		return nil, err
+		return nil, errConnecting(err)
 	}
 	if opts != nil {
 		sqlxDB.SetMaxOpenConns(opts.MaxOpenConns)
@@ -38,5 +38,8 @@ func DriverName() string {
 }
 
 func (db *DB) Close() error {
-	return db.db.Close()
+	if err := db.db.Close(); err != nil {
+		return errClosing(err)
+	}
+	return nil
 }

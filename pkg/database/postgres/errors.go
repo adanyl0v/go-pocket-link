@@ -1,11 +1,47 @@
 package postgres
 
-import "fmt"
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"github.com/jackc/pgx/v5/pgconn"
+)
 
-func errorPreparingQuery(query string, err error) error {
-	return fmt.Errorf("preparing '%s': %s", query, err.Error())
+var (
+	ErrNoRowsInResultSet = sql.ErrNoRows
+)
+
+const (
+	ErrCodeIntegrityConstraintViolation = "23000"
+	ErrCodeRestrictViolation            = "23001"
+	ErrCodeNotNullViolation             = "23502"
+	ErrCodeForeignKeyViolation          = "23503"
+	ErrCodeUniqueViolation              = "23505"
+	ErrCodeCheckViolation               = "23514"
+	ErrCodeExclusionViolation           = "23P01"
+	ErrCodeNoDataFound                  = "P0002"
+)
+
+func ErrorCode(err error) string {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code
+	}
+	return ""
 }
 
-func errorExecutingQuery(query string, err error) error {
-	return fmt.Errorf("executing '%s': %s", query, err.Error())
+func errConnecting(err error) error {
+	return fmt.Errorf("%w (connecting to postgres)", err)
+}
+
+func errClosing(err error) error {
+	return fmt.Errorf("%w (closing postgres connection)", err)
+}
+
+func errPreparingQuery(query string, err error) error {
+	return fmt.Errorf("%w (preparing '%s')", err, query)
+}
+
+func errExecutingQuery(query string, err error) error {
+	return fmt.Errorf("%w (executing '%s')", err, query)
 }

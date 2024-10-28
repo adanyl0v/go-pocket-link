@@ -7,7 +7,7 @@ import (
 func (db *DB) Save(ctx context.Context, dest any, query string, arg any) error {
 	stmt, err := db.db.PrepareNamedContext(ctx, query)
 	if err != nil {
-		return errorPreparingQuery(query, err)
+		return errPreparingQuery(query, err)
 	}
 	defer func() { _ = stmt.Close() }()
 
@@ -18,7 +18,7 @@ func (db *DB) Save(ctx context.Context, dest any, query string, arg any) error {
 		err = row.Scan(dest)
 	}
 	if err != nil {
-		return errorExecutingQuery(query, err)
+		return errExecutingQuery(query, err)
 	}
 	return nil
 }
