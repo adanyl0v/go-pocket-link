@@ -35,4 +35,7 @@ type Config struct {
 			ConnMaxIdleTime time.Duration `yaml:"conn_max_idle_time" env-required:"true"`
 		} `yaml:"postgres" env-required:"true"`
 	} `yaml:"storage" env-required:"true"`
+	Hash struct {
+		Salt string `env:"HASH_SALT" env-required:"true"`
+	}
 }

@@ -34,7 +34,7 @@ func (r *UsersRepository) Get(ctx context.Context, id uuid.UUID) (domain.User, e
 
 func (r *UsersRepository) GetByCredentials(ctx context.Context, email, password string) (domain.User, error) {
 	var user domain.User
-	err := r.db.GetPrepared(ctx, `SELECT * FROM users WHERE email = $1 AND password = $2`, email, password)
+	err := r.db.GetPrepared(ctx, &user, `SELECT * FROM users WHERE email = $1 AND password = $2`, email, password)
 	if err != nil {
 		return domain.User{}, err
 	}

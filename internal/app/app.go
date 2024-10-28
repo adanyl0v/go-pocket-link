@@ -11,6 +11,8 @@ import (
 	httpv1 "go-pocket-link/internal/delivery/http/v1"
 	"go-pocket-link/internal/repository"
 	pgrep "go-pocket-link/internal/repository/postgres"
+	"go-pocket-link/internal/service"
+	"go-pocket-link/pkg/crypto/hash"
 	pgdb "go-pocket-link/pkg/database/postgres"
 	"log"
 	"log/slog"
@@ -37,12 +39,15 @@ func Run(configPath string) {
 	repos := &repository.Repositories{
 		Users: pgrep.NewUsersRepository(postgresDB),
 	}
-	_ = repos //TODO delete me
+
+	services := service.Services{
+		Users: service.NewUsersService(repos.Users, hash.NewSHA1Hasher(cfg.Hash.Salt)),
+	}
 
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(gin.Logger())
-	delivhttp.InitRouter(router, httpv1.NewHandler())
+	delivhttp.InitRouter(router, httpv1.NewHandler(&services))
 
 	server := http.Server{
 		Addr:         fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
@@ -111,12 +116,12 @@ func mustListenAndServe(server *http.Server) {
 	defer cancel()
 
 	go func() {
+		slog.Info("listening...", "addr", server.Addr)
 		err := server.ListenAndServe()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("", logError, err)
 			os.Exit(1)
 		}
-		slog.Info("listening...", "addr", server.Addr)
 	}()
 
 	<-ctx.Done()

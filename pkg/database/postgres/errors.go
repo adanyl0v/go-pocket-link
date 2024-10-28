@@ -20,6 +20,7 @@ const (
 	ErrCodeCheckViolation               = "23514"
 	ErrCodeExclusionViolation           = "23P01"
 	ErrCodeNoDataFound                  = "P0002"
+	ErrCodeInvalidSyntax                = "42601"
 )
 
 func ErrorCode(err error) string {
