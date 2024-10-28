@@ -1,5 +1,7 @@
 package service
 
 type Services struct {
-	Users *UsersService
+	Auth     *AuthService
+	Users    *UsersService
+	Sessions *SessionsService
 }

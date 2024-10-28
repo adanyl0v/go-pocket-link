@@ -12,6 +12,7 @@ import (
 	"go-pocket-link/internal/repository"
 	pgrep "go-pocket-link/internal/repository/postgres"
 	"go-pocket-link/internal/service"
+	"go-pocket-link/pkg/auth/jwt"
 	"go-pocket-link/pkg/crypto/hash"
 	pgdb "go-pocket-link/pkg/database/postgres"
 	"log"
@@ -37,11 +38,15 @@ func Run(configPath string) {
 	defer func() { _ = postgresDB.Close() }()
 
 	repos := &repository.Repositories{
-		Users: pgrep.NewUsersRepository(postgresDB),
+		Users:    pgrep.NewUsersRepository(postgresDB),
+		Sessions: pgrep.NewSessionsRepository(postgresDB),
 	}
 
 	services := service.Services{
-		Users: service.NewUsersService(repos.Users, hash.NewSHA1Hasher(cfg.Hash.Salt)),
+		Auth: service.NewAuthService(jwt.NewTokenManager(cfg.Auth.AccessSecret,
+			cfg.Auth.RefreshSecret), cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL),
+		Users:    service.NewUsersService(repos.Users, hash.NewSHA1Hasher(cfg.Hash.Salt)),
+		Sessions: service.NewSessionsService(repos.Sessions),
 	}
 
 	router := gin.New()

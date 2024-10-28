@@ -38,4 +38,10 @@ type Config struct {
 	Hash struct {
 		Salt string `env:"HASH_SALT" env-required:"true"`
 	}
+	Auth struct {
+		AccessSecret    string        `env:"AUTH_ACCESS_SECRET" env-required:"true"`
+		RefreshSecret   string        `env:"AUTH_REFRESH_SECRET" env-required:"true"`
+		AccessTokenTTL  time.Duration `yaml:"access_token_ttl" env-required:"true"`
+		RefreshTokenTTL time.Duration `yaml:"refresh_token_ttl" env-required:"true"`
+	} `yaml:"auth" env-required:"true"`
 }

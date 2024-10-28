@@ -13,3 +13,7 @@ storage:
     max_idle_conns: 10
     conn_max_lifetime: 10s
     conn_max_idle_time: 10s
+
+auth:
+  access_token_ttl: 10m
+  refresh_token_ttl: 43200m # 30 days
