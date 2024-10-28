@@ -25,17 +25,23 @@ func (s *SessionsService) Get(ctx context.Context, id uuid.UUID) (domain.Session
 	return s.repo.Get(ctx, id)
 }
 
-func (s *SessionsService) Update(ctx context.Context, session *domain.Session) error {
-	return s.repo.Update(ctx, session)
-}
-
 func (s *SessionsService) GetByUserID(ctx context.Context, id uuid.UUID) (domain.Session, error) {
 	return s.repo.GetByUserID(ctx, id)
 }
+
 func (s *SessionsService) GetByRefreshToken(ctx context.Context, token string) (domain.Session, error) {
 	return s.repo.GetByRefreshToken(ctx, token)
 }
 
+func (s *SessionsService) Update(ctx context.Context, session *domain.Session) error {
+	return s.repo.Update(ctx, session)
+}
+
 func (s *SessionsService) Delete(ctx context.Context, id uuid.UUID) error {
 	return s.repo.Delete(ctx, id)
+}
+
+func (s *SessionsService) Invalidate(ctx context.Context, id uuid.UUID) error {
+	session := domain.Session{ID: id, RefreshToken: "0", IsInvoked: true}
+	return s.repo.Update(ctx, &session)
 }

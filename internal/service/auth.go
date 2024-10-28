@@ -37,8 +37,8 @@ func (s *AuthService) ParseRefreshToken(token string) (jwt5.Claims, error) {
 	return s.jwtTm.ParseRefreshToken(token)
 }
 
-func (s *AuthService) NewAccessToken(sessionID uuid.UUID) (string, error) {
-	return s.jwtTm.NewAccessToken(sessionID, s.accessTokenTTL)
+func (s *AuthService) NewAccessToken(userID uuid.UUID) (string, error) {
+	return s.jwtTm.NewAccessToken(userID, s.accessTokenTTL)
 }
 
 func (s *AuthService) NewRefreshToken() (string, error) {

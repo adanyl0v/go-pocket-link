@@ -21,7 +21,7 @@ func (r *SessionsRepository) Save(ctx context.Context, session *domain.Session) 
 
 func (r *SessionsRepository) Get(ctx context.Context, id uuid.UUID) (domain.Session, error) {
 	var session domain.Session
-	if err := r.db.GetPrepared(ctx, `SELECT * FROM sessions WHERE id = $1`, id.String()); err != nil {
+	if err := r.db.GetPrepared(ctx, &session, `SELECT * FROM sessions WHERE id = $1`, id.String()); err != nil {
 		return domain.Session{}, err
 	}
 	return session, nil
@@ -29,7 +29,7 @@ func (r *SessionsRepository) Get(ctx context.Context, id uuid.UUID) (domain.Sess
 
 func (r *SessionsRepository) GetByUserID(ctx context.Context, id uuid.UUID) (domain.Session, error) {
 	var session domain.Session
-	if err := r.db.GetPrepared(ctx, `SELECT * FROM sessions WHERE user_id = $1`, id.String()); err != nil {
+	if err := r.db.GetPrepared(ctx, &session, `SELECT * FROM sessions WHERE user_id = $1`, id.String()); err != nil {
 		return domain.Session{}, err
 	}
 	return session, nil
@@ -37,7 +37,7 @@ func (r *SessionsRepository) GetByUserID(ctx context.Context, id uuid.UUID) (dom
 
 func (r *SessionsRepository) GetByRefreshToken(ctx context.Context, token string) (domain.Session, error) {
 	var session domain.Session
-	if err := r.db.GetPrepared(ctx, `SELECT * FROM sessions WHERE refresh_token = $1`, token); err != nil {
+	if err := r.db.GetPrepared(ctx, &session, `SELECT * FROM sessions WHERE refresh_token = $1`, token); err != nil {
 		return domain.Session{}, err
 	}
 	return session, nil

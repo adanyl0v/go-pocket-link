@@ -10,7 +10,7 @@ import (
 type TokenManager interface {
 	ParseAccessToken(token string) (jwt5.Claims, error)
 	ParseRefreshToken(token string) (jwt5.Claims, error)
-	NewAccessToken(sessionID uuid.UUID, ttl time.Duration) (string, error)
+	NewAccessToken(id uuid.UUID, ttl time.Duration) (string, error)
 	NewRefreshToken(ttl time.Duration) (string, error)
 }
 
@@ -40,9 +40,9 @@ func (tm *tokenManagerImpl) ParseRefreshToken(token string) (jwt5.Claims, error)
 	return tm.parseToken(token, tm.refreshSecret)
 }
 
-func (tm *tokenManagerImpl) NewAccessToken(sessionID uuid.UUID, ttl time.Duration) (string, error) {
+func (tm *tokenManagerImpl) NewAccessToken(id uuid.UUID, ttl time.Duration) (string, error) {
 	return tm.newToken(jwt5.MapClaims{
-		ClaimsSubject:   sessionID.String(),
+		ClaimsSubject:   id.String(),
 		ClaimsIssuedAt:  time.Now().Unix(),
 		ClaimsExpiresAt: time.Now().Add(ttl).Unix(),
 	}, tm.accessSecret)

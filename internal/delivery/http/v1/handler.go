@@ -2,6 +2,7 @@ package v1
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"go-pocket-link/internal/domain"
 	"go-pocket-link/internal/service"
 	"log/slog"
@@ -13,7 +14,7 @@ import (
 const (
 	logError = "error"
 
-	cookieRefreshToken = "refresh_token"
+	cookiesRefreshToken = "refresh_token"
 )
 
 type Handler struct {
@@ -25,26 +26,28 @@ func NewHandler(services *service.Services) *Handler {
 }
 
 func (h *Handler) InitEndpoints(routerGroup *gin.RouterGroup) {
-	routerGroup.GET("/ping", h.ping)
-	routerGroup.POST("/sign-up", h.signUp)
-	routerGroup.POST("/sign-in", h.signIn)
+	routerGroup.GET("/ping", h.handlePing)
+	routerGroup.POST("/sign-up", h.handleSignUp)
+	routerGroup.POST("/sign-in", h.handleSignIn)
+
+	protectedGroup := routerGroup.Group("/", h.useAuth)
+	{
+		protectedGroup.POST("/log-out", h.handleLogOut)
+	}
 }
 
-func (h *Handler) ping(c *gin.Context) {
+func (h *Handler) handlePing(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "pong"})
 	slog.Debug("pinged connection")
 }
 
-func (h *Handler) signUp(c *gin.Context) {
+func (h *Handler) handleSignUp(c *gin.Context) {
 	var input struct {
 		Name     string `json:"name" form:"name" binding:"required"`
 		Email    string `json:"email" form:"email" binding:"required"`
 		Password string `json:"password" form:"password" binding:"required"`
 	}
-	slog.Debug("sign up input", "input", input)
-
-	if err := c.ShouldBind(&input); err != nil {
-		writeError(c, http.StatusBadRequest, "invalid input", err)
+	if err := bindInput(c, &input); err != nil {
 		return
 	}
 
@@ -54,12 +57,10 @@ func (h *Handler) signUp(c *gin.Context) {
 		return
 	}
 
-	refreshToken, err := h.services.Auth.NewRefreshToken()
+	refreshToken, err := newRefreshToken(c, h.services.Auth)
 	if err != nil {
-		writeError(c, http.StatusInternalServerError, "creating refresh token", err)
 		return
 	}
-	slog.Debug("created refresh token", "token", refreshToken)
 
 	session := domain.Session{
 		UserID:       user.ID,
@@ -71,14 +72,12 @@ func (h *Handler) signUp(c *gin.Context) {
 	}
 	slog.Debug("saved session", "session", session)
 
-	accessToken, err := h.services.Auth.NewAccessToken(session.ID)
+	accessToken, err := newAccessToken(c, h.services.Auth, user.ID)
 	if err != nil {
-		writeError(c, http.StatusInternalServerError, "creating access token", err)
 		return
 	}
-	slog.Debug("created access token", "token", accessToken)
 
-	setRefreshTokenCookie(c, refreshToken, h.services.Auth.RefreshTokenTTL())
+	setRefreshTokenCookies(c, refreshToken, h.services.Auth.RefreshTokenTTL())
 
 	c.JSON(http.StatusCreated, accessToken)
 	slog.Debug("signed up", "user", user, "jwt", struct {
@@ -86,30 +85,25 @@ func (h *Handler) signUp(c *gin.Context) {
 	}{AccessToken: accessToken, RefreshToken: refreshToken})
 }
 
-func (h *Handler) signIn(c *gin.Context) {
+func (h *Handler) handleSignIn(c *gin.Context) {
 	var input struct {
 		Email    string `json:"email" form:"email" binding:"required"`
 		Password string `json:"password" form:"password" binding:"required"`
 	}
-	slog.Debug("sign in input", "input", input)
-
-	if err := c.ShouldBind(&input); err != nil {
-		writeError(c, http.StatusBadRequest, "invalid input", err)
+	if err := bindInput(c, &input); err != nil {
 		return
 	}
 
 	user, err := h.services.Users.GetByCredentials(c, input.Email, input.Password)
 	if err != nil {
-		writeError(c, http.StatusInternalServerError, "fetching user", err)
+		writeError(c, http.StatusInternalServerError, "getting user", err)
 		return
 	}
 
-	refreshToken, err := h.services.Auth.NewRefreshToken()
+	refreshToken, err := newRefreshToken(c, h.services.Auth)
 	if err != nil {
-		writeError(c, http.StatusInternalServerError, "creating refresh token", err)
 		return
 	}
-	slog.Debug("created refresh token", "token", refreshToken)
 
 	session := domain.Session{
 		RefreshToken: refreshToken,
@@ -120,14 +114,12 @@ func (h *Handler) signIn(c *gin.Context) {
 	}
 	slog.Debug("updated session")
 
-	accessToken, err := h.services.Auth.NewAccessToken(session.ID)
+	accessToken, err := newAccessToken(c, h.services.Auth, user.ID)
 	if err != nil {
-		writeError(c, http.StatusInternalServerError, "creating access token", err)
 		return
 	}
-	slog.Debug("created access token", "token", accessToken)
 
-	setRefreshTokenCookie(c, refreshToken, h.services.Auth.RefreshTokenTTL())
+	setRefreshTokenCookies(c, refreshToken, h.services.Auth.RefreshTokenTTL())
 
 	c.JSON(http.StatusOK, accessToken)
 	slog.Debug("signed in", "user", user, "jwt", struct {
@@ -135,12 +127,68 @@ func (h *Handler) signIn(c *gin.Context) {
 	}{AccessToken: accessToken, RefreshToken: refreshToken})
 }
 
-func writeError(c *gin.Context, status int, message string, err error) {
-	c.JSON(status, gin.H{logError: message})
-	slog.Error(message, logError, err)
+func (h *Handler) handleLogOut(c *gin.Context) {
+	_, sessionID, err := userAndSessionIDsFromContext(c)
+	if err != nil {
+		return
+	}
+	slog.Debug("got session", "id", sessionID)
+
+	if err = h.services.Sessions.Invalidate(c, sessionID); err != nil {
+		writeError(c, http.StatusInternalServerError, "invalidating session", err)
+		return
+	}
+	slog.Debug("invalidated session", "id", sessionID)
+
+	c.Redirect(http.StatusTemporaryRedirect, "/sign-in")
 }
 
-func setRefreshTokenCookie(c *gin.Context, token string, ttl time.Duration) {
+func bindInput(c *gin.Context, input any) error {
+	if err := c.ShouldBind(input); err != nil {
+		writeError(c, http.StatusBadRequest, "invalid input", err)
+		return err
+	}
+	slog.Debug("bound input", "input", input)
+	return nil
+}
+
+func newAccessToken(c *gin.Context, auth *service.AuthService, userID uuid.UUID) (string, error) {
+	token, err := auth.NewAccessToken(userID)
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "creating access token", err)
+		return "", err
+	}
+	slog.Debug("created access token", "token", token)
+	return token, nil
+}
+
+func newRefreshToken(c *gin.Context, auth *service.AuthService) (string, error) {
+	token, err := auth.NewRefreshToken()
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "creating refresh token", err)
+		return "", err
+	}
+	slog.Debug("created refresh token", "token", token)
+	return token, nil
+}
+
+func setRefreshTokenCookies(c *gin.Context, token string, ttl time.Duration) {
 	hostDomain := strings.Split(c.Request.Host, ":")[0]
-	c.SetCookie(cookieRefreshToken, token, int(ttl.Seconds()), "/", hostDomain, false, true)
+	c.SetCookie(cookiesRefreshToken, token, int(ttl.Seconds()), "/", hostDomain, false, true)
+}
+
+func userAndSessionIDsFromContext(c *gin.Context) (uuid.UUID, uuid.UUID, error) {
+	userID, err := idFromContext(c, contextUserID)
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "getting user id from context", err)
+		return uuid.Nil, uuid.Nil, err
+	}
+
+	sessionID, err := idFromContext(c, contextSessionID)
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "getting session id from context", err)
+		return uuid.Nil, uuid.Nil, err
+	}
+
+	return userID, sessionID, nil
 }
