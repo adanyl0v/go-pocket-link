@@ -12,6 +12,16 @@ import (
 )
 
 const (
+	PublicEndpointSignIn = "/sign-in"
+	PublicEndpointSignUp = "/sign-up"
+
+	ApiEndpointPing   = "/ping"
+	ApiEndpointSignIn = PublicEndpointSignIn
+	ApiEndpointSignUp = PublicEndpointSignUp
+	ApiEndpointLogOut = "/log-out"
+)
+
+const (
 	logError = "error"
 
 	cookiesRefreshToken = "refresh_token"
@@ -26,19 +36,19 @@ func NewHandler(services *service.Services) *Handler {
 }
 
 func (h *Handler) InitEndpoints(routerGroup *gin.RouterGroup) {
-	routerGroup.GET("/ping", h.handlePing)
-	routerGroup.POST("/sign-up", h.handleSignUp)
-	routerGroup.POST("/sign-in", h.handleSignIn)
+	routerGroup.GET(ApiEndpointPing, h.handlePing)
+	routerGroup.POST(ApiEndpointSignUp, h.handleSignUp)
+	routerGroup.POST(ApiEndpointSignIn, h.handleSignIn)
 
 	protectedGroup := routerGroup.Group("/", h.useAuth)
 	{
-		protectedGroup.POST("/log-out", h.handleLogOut)
+		protectedGroup.POST(ApiEndpointLogOut, h.handleLogOut)
 	}
 }
 
 func (h *Handler) handlePing(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "pong"})
-	slog.Debug("pinged connection")
+	slog.Debug("connection is healthy")
 }
 
 func (h *Handler) handleSignUp(c *gin.Context) {
@@ -50,39 +60,35 @@ func (h *Handler) handleSignUp(c *gin.Context) {
 	if err := bindInput(c, &input); err != nil {
 		return
 	}
+	slog.Debug("bound input", "input", input)
 
-	user := domain.User{Name: input.Name, Email: input.Email, Password: input.Password}
+	user := domain.User{
+		Name:     input.Name,
+		Email:    input.Email,
+		Password: input.Password,
+	}
 	if err := h.services.Users.Save(c, &user); err != nil {
 		writeError(c, http.StatusInternalServerError, "saving user", err)
 		return
 	}
 
-	refreshToken, err := newRefreshToken(c, h.services.Auth)
+	tokens, err := h.services.Tokens.NewTokenPair(user.ID)
 	if err != nil {
+		writeError(c, http.StatusInternalServerError, "creating token pair", err)
 		return
 	}
 
-	session := domain.Session{
-		UserID:       user.ID,
-		RefreshToken: refreshToken,
-	}
-	if err = h.services.Sessions.Save(c, &session); err != nil {
-		writeError(c, http.StatusInternalServerError, "saving session", err)
+	if err = h.services.Tokens.SaveRefreshTokenFromString(c, tokens.RefreshToken); err != nil {
+		writeError(c, http.StatusInternalServerError, "saving refresh token", err)
 		return
 	}
-	slog.Debug("saved session", "session", session)
+	slog.Debug("saved refresh token", "token", tokens.RefreshToken)
 
-	accessToken, err := newAccessToken(c, h.services.Auth, user.ID)
-	if err != nil {
-		return
-	}
+	setRefreshTokenCookies(c, tokens.RefreshToken, h.services.Tokens.RefreshTokenTTL)
+	slog.Debug("set refresh token cookies")
 
-	setRefreshTokenCookies(c, refreshToken, h.services.Auth.RefreshTokenTTL())
-
-	c.JSON(http.StatusCreated, accessToken)
-	slog.Debug("signed up", "user", user, "jwt", struct {
-		AccessToken, RefreshToken string
-	}{AccessToken: accessToken, RefreshToken: refreshToken})
+	c.JSON(http.StatusCreated, tokens.AccessToken)
+	slog.Debug("signed up", "user", user, "jwt", tokens)
 }
 
 func (h *Handler) handleSignIn(c *gin.Context) {
@@ -93,6 +99,7 @@ func (h *Handler) handleSignIn(c *gin.Context) {
 	if err := bindInput(c, &input); err != nil {
 		return
 	}
+	slog.Debug("bound input", "input", input)
 
 	user, err := h.services.Users.GetByCredentials(c, input.Email, input.Password)
 	if err != nil {
@@ -100,47 +107,46 @@ func (h *Handler) handleSignIn(c *gin.Context) {
 		return
 	}
 
-	refreshToken, err := newRefreshToken(c, h.services.Auth)
+	tokens, err := h.services.Tokens.NewTokenPair(user.ID)
 	if err != nil {
+		writeError(c, http.StatusInternalServerError, "creating token pair", err)
 		return
 	}
 
-	session := domain.Session{
-		RefreshToken: refreshToken,
-	}
-	if err = h.services.Sessions.Update(c, &session); err != nil {
-		writeError(c, http.StatusInternalServerError, "updating session", err)
+	if err = h.services.Tokens.SaveRefreshTokenFromString(c, tokens.RefreshToken); err != nil {
+		writeError(c, http.StatusInternalServerError, "saving refresh token", err)
 		return
 	}
-	slog.Debug("updated session")
+	slog.Debug("saved refresh token", "token", tokens.RefreshToken)
 
-	accessToken, err := newAccessToken(c, h.services.Auth, user.ID)
-	if err != nil {
-		return
-	}
+	setRefreshTokenCookies(c, tokens.RefreshToken, h.services.Tokens.RefreshTokenTTL)
+	slog.Debug("set refresh token cookies")
 
-	setRefreshTokenCookies(c, refreshToken, h.services.Auth.RefreshTokenTTL())
-
-	c.JSON(http.StatusOK, accessToken)
-	slog.Debug("signed in", "user", user, "jwt", struct {
-		AccessToken, RefreshToken string
-	}{AccessToken: accessToken, RefreshToken: refreshToken})
+	c.JSON(http.StatusOK, tokens.AccessToken)
+	slog.Debug("signed in", "user", user, "jwt", tokens)
 }
 
 func (h *Handler) handleLogOut(c *gin.Context) {
-	_, sessionID, err := userAndSessionIDsFromContext(c)
+	rawUserID, exists := c.Get(contextUserID)
+	if !exists {
+		writeError(c, http.StatusUnauthorized, "no user id in context", nil)
+		return
+	}
+
+	userID, err := uuid.Parse(rawUserID.(string))
 	if err != nil {
+		writeError(c, http.StatusUnauthorized, "parsing user id", err)
 		return
 	}
-	slog.Debug("got session", "id", sessionID)
+	slog.Debug("got user id from context", "id", userID)
 
-	if err = h.services.Sessions.Invalidate(c, sessionID); err != nil {
-		writeError(c, http.StatusInternalServerError, "invalidating session", err)
+	if err = h.services.Tokens.InvalidateUser(c, userID); err != nil {
+		writeError(c, http.StatusInternalServerError, "invalidating user", err)
 		return
 	}
-	slog.Debug("invalidated session", "id", sessionID)
+	slog.Debug("invalidated user")
 
-	c.Redirect(http.StatusTemporaryRedirect, "/sign-in")
+	c.Redirect(http.StatusTemporaryRedirect, PublicEndpointSignIn)
 }
 
 func bindInput(c *gin.Context, input any) error {
@@ -148,47 +154,10 @@ func bindInput(c *gin.Context, input any) error {
 		writeError(c, http.StatusBadRequest, "invalid input", err)
 		return err
 	}
-	slog.Debug("bound input", "input", input)
 	return nil
 }
 
-func newAccessToken(c *gin.Context, auth *service.AuthService, userID uuid.UUID) (string, error) {
-	token, err := auth.NewAccessToken(userID)
-	if err != nil {
-		writeError(c, http.StatusInternalServerError, "creating access token", err)
-		return "", err
-	}
-	slog.Debug("created access token", "token", token)
-	return token, nil
-}
-
-func newRefreshToken(c *gin.Context, auth *service.AuthService) (string, error) {
-	token, err := auth.NewRefreshToken()
-	if err != nil {
-		writeError(c, http.StatusInternalServerError, "creating refresh token", err)
-		return "", err
-	}
-	slog.Debug("created refresh token", "token", token)
-	return token, nil
-}
-
 func setRefreshTokenCookies(c *gin.Context, token string, ttl time.Duration) {
-	hostDomain := strings.Split(c.Request.Host, ":")[0]
-	c.SetCookie(cookiesRefreshToken, token, int(ttl.Seconds()), "/", hostDomain, false, true)
-}
-
-func userAndSessionIDsFromContext(c *gin.Context) (uuid.UUID, uuid.UUID, error) {
-	userID, err := idFromContext(c, contextUserID)
-	if err != nil {
-		writeError(c, http.StatusBadRequest, "getting user id from context", err)
-		return uuid.Nil, uuid.Nil, err
-	}
-
-	sessionID, err := idFromContext(c, contextSessionID)
-	if err != nil {
-		writeError(c, http.StatusBadRequest, "getting session id from context", err)
-		return uuid.Nil, uuid.Nil, err
-	}
-
-	return userID, sessionID, nil
+	c.SetCookie(cookiesRefreshToken, token, int(ttl.Seconds()), "/",
+		strings.Split(c.Request.Host, ":")[0], false, true)
 }

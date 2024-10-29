@@ -34,6 +34,11 @@ type Config struct {
 			ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime" env-required:"true"`
 			ConnMaxIdleTime time.Duration `yaml:"conn_max_idle_time" env-required:"true"`
 		} `yaml:"postgres" env-required:"true"`
+		Redis struct {
+			Host     string `env:"REDIS_HOST" env-required:"true"`
+			Port     int    `env:"REDIS_PORT" env-required:"true"`
+			Password string `env:"REDIS_PASSWORD" env-required:"true"`
+		}
 	} `yaml:"storage" env-required:"true"`
 	Hash struct {
 		Salt string `env:"HASH_SALT" env-required:"true"`

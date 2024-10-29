@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"go-pocket-link/internal/domain"
+	"time"
 )
 
 type UsersRepository interface {
@@ -15,17 +16,18 @@ type UsersRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
-type SessionsRepository interface {
-	Save(ctx context.Context, session *domain.Session) error
-	Get(ctx context.Context, id uuid.UUID) (domain.Session, error)
-	GetByUserID(ctx context.Context, id uuid.UUID) (domain.Session, error)
-	GetByRefreshToken(ctx context.Context, token string) (domain.Session, error)
-	// Update domain.Session RefreshToken and IsInvoked by ID
-	Update(ctx context.Context, session *domain.Session) error
-	Delete(ctx context.Context, id uuid.UUID) error
+type TokensRepository interface {
+	Get(ctx context.Context, userID, tokenID uuid.UUID) (domain.Token, error)
+	GetByKey(ctx context.Context, key string) (domain.Token, error)
+	GetByUserID(ctx context.Context, userID uuid.UUID) ([]domain.Token, error)
+	GetByTokenID(ctx context.Context, tokenID uuid.UUID) (domain.Token, error)
+	Set(ctx context.Context, token *domain.Token, ttl time.Duration) error
+	Delete(ctx context.Context, key string) error
+	DeleteByUserID(ctx context.Context, userID uuid.UUID) error
+	DeleteByTokenID(ctx context.Context, tokenID uuid.UUID) error
 }
 
 type Repositories struct {
-	Users    UsersRepository
-	Sessions SessionsRepository
+	Users  UsersRepository
+	Tokens TokensRepository
 }

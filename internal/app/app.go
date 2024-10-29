@@ -11,8 +11,10 @@ import (
 	httpv1 "go-pocket-link/internal/delivery/http/v1"
 	"go-pocket-link/internal/repository"
 	pgrep "go-pocket-link/internal/repository/postgres"
+	redisrep "go-pocket-link/internal/repository/redis"
 	"go-pocket-link/internal/service"
 	"go-pocket-link/pkg/auth/jwt"
+	redisdb "go-pocket-link/pkg/cache/redis"
 	"go-pocket-link/pkg/crypto/hash"
 	pgdb "go-pocket-link/pkg/database/postgres"
 	"log"
@@ -37,22 +39,28 @@ func Run(configPath string) {
 	postgresDB := mustConnectToPostgres(cfg)
 	defer func() { _ = postgresDB.Close() }()
 
+	redisDB := mustConnectToRedis(cfg)
+	defer func() { _ = redisDB.Close() }()
+
 	repos := &repository.Repositories{
-		Users:    pgrep.NewUsersRepository(postgresDB),
-		Sessions: pgrep.NewSessionsRepository(postgresDB),
+		Users:  pgrep.NewUsersRepository(postgresDB),
+		Tokens: redisrep.NewTokensRepository(redisDB),
 	}
+	slog.Info("initialized repositories")
 
 	services := service.Services{
-		Auth: service.NewAuthService(jwt.NewTokenManager(cfg.Auth.AccessSecret,
-			cfg.Auth.RefreshSecret), cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL),
-		Users:    service.NewUsersService(repos.Users, hash.NewSHA1Hasher(cfg.Hash.Salt)),
-		Sessions: service.NewSessionsService(repos.Sessions),
+		Users: service.NewUsersService(repos.Users, hash.NewSHA1Hasher(cfg.Hash.Salt)),
+		Tokens: service.NewTokensService(repos.Tokens, jwt.NewTokenManager(cfg.Auth.AccessSecret, cfg.Auth.RefreshSecret,
+			jwt.StaticClaims{Issuer: "https://pocketlink.com", Audience: "https://api.pocketlink.com"}),
+			cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL),
 	}
+	slog.Info("initialized services")
 
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(gin.Logger())
 	delivhttp.InitRouter(router, httpv1.NewHandler(&services))
+	slog.Info("initialized router")
 
 	server := http.Server{
 		Addr:         fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
@@ -69,11 +77,13 @@ func mustReadConfig(reader config.Reader) *config.Config {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	return cfg
 }
 
 func mustSetupLogger(env string) {
 	var logger *slog.Logger
+
 	switch env {
 	case config.EnvLocal:
 		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
@@ -93,6 +103,7 @@ func mustSetupLogger(env string) {
 	default:
 		log.Fatalln("unknown env", env)
 	}
+
 	slog.SetDefault(logger)
 }
 
@@ -101,6 +112,7 @@ func mustConnectToPostgres(cfg *config.Config) *pgdb.DB {
 		cfg.Storage.Postgres.User, cfg.Storage.Postgres.Password,
 		cfg.Storage.Postgres.Host, cfg.Storage.Postgres.Port,
 		cfg.Storage.Postgres.Name, cfg.Storage.Postgres.SslMode)
+
 	db, err := pgdb.Connect(dsn, &pgdb.ConnOptions{
 		MaxOpenConns:    cfg.Storage.Postgres.MaxOpenConns,
 		MaxIdleConns:    cfg.Storage.Postgres.MaxIdleConns,
@@ -108,11 +120,27 @@ func mustConnectToPostgres(cfg *config.Config) *pgdb.DB {
 		ConnMaxIdleTime: cfg.Storage.Postgres.ConnMaxIdleTime,
 	})
 	if err != nil {
-		slog.Error("connecting to postgres", logError, err.Error())
+		slog.Error("connecting to postgres", logError, err)
 		os.Exit(1)
 	}
-	slog.Info("connected to database", "dsn", fmt.Sprintf("postgres://%s:%d/%s",
+
+	slog.Info("connected to postgres", "dsn", fmt.Sprintf("postgres://...@%s:%d/%s",
 		cfg.Storage.Postgres.Host, cfg.Storage.Postgres.Port, cfg.Storage.Postgres.Name))
+	return db
+}
+
+func mustConnectToRedis(cfg *config.Config) *redisdb.DB {
+	dsn := fmt.Sprintf("redis://:%s@%s:%d/0", cfg.Storage.Redis.Password,
+		cfg.Storage.Redis.Host, cfg.Storage.Redis.Port)
+
+	db, err := redisdb.Connect(dsn)
+	if err != nil {
+		slog.Error("connecting to redis", logError, err)
+		os.Exit(1)
+	}
+
+	slog.Info("connected to redis", "dsn", fmt.Sprintf("redis://...@%s:%d/0",
+		cfg.Storage.Redis.Host, cfg.Storage.Redis.Port))
 	return db
 }
 
