@@ -2,9 +2,8 @@ package v1
 
 import (
 	"fmt"
+	"github.com/adanyl0v/go-pocket-link/pkg/auth/jwt"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"go-pocket-link/pkg/auth/jwt"
 	"net/http"
 	"strings"
 )
@@ -18,13 +17,13 @@ const (
 func (h *Handler) useAuth(c *gin.Context) {
 	headerValue, err := parseAuthHeader(c)
 	if err != nil {
-		writeAbort(c, http.StatusUnauthorized, fmt.Sprintf("parsing %s header", headerAuthorization), err)
+		writeAbort(c, http.StatusUnauthorized, err.Error(), nil)
 		return
 	}
 
 	accessTokenClaims, err := h.services.Tokens.ValidateAccessToken(headerValue)
 	if err != nil {
-		writeAbort(c, http.StatusUnauthorized, "validating access token claims", err)
+		writeAbort(c, http.StatusUnauthorized, "invalid access token claims", err)
 		return
 	}
 
@@ -49,12 +48,4 @@ func parseAuthHeader(c *gin.Context) (string, error) {
 	}
 
 	return parts[1], nil
-}
-
-func getContextID(c *gin.Context, key string) (uuid.UUID, error) {
-	id, err := uuid.Parse(c.GetString(key))
-	if err != nil {
-		return uuid.Nil, err
-	}
-	return id, nil
 }

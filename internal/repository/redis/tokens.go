@@ -3,9 +3,9 @@ package redis
 import (
 	"context"
 	"fmt"
+	"github.com/adanyl0v/go-pocket-link/internal/domain"
+	"github.com/adanyl0v/go-pocket-link/pkg/cache/redis"
 	"github.com/google/uuid"
-	"go-pocket-link/internal/domain"
-	"go-pocket-link/pkg/cache/redis"
 	"strings"
 	"time"
 )

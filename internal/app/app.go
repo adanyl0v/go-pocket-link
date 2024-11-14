@@ -4,19 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/adanyl0v/go-pocket-link/internal/config"
+	delivhttp "github.com/adanyl0v/go-pocket-link/internal/delivery/http"
+	httpv1 "github.com/adanyl0v/go-pocket-link/internal/delivery/http/v1"
+	"github.com/adanyl0v/go-pocket-link/internal/repository"
+	pgrep "github.com/adanyl0v/go-pocket-link/internal/repository/postgres"
+	redisrep "github.com/adanyl0v/go-pocket-link/internal/repository/redis"
+	"github.com/adanyl0v/go-pocket-link/internal/service"
+	"github.com/adanyl0v/go-pocket-link/pkg/auth/jwt"
+	redisdb "github.com/adanyl0v/go-pocket-link/pkg/cache/redis"
+	"github.com/adanyl0v/go-pocket-link/pkg/crypto/hash"
+	pgdb "github.com/adanyl0v/go-pocket-link/pkg/database/postgres"
+	"github.com/adanyl0v/go-pocket-link/pkg/validator"
 	"github.com/gin-gonic/gin"
-	_ "github.com/jackc/pgx/v5/stdlib"
-	"go-pocket-link/internal/config"
-	delivhttp "go-pocket-link/internal/delivery/http"
-	httpv1 "go-pocket-link/internal/delivery/http/v1"
-	"go-pocket-link/internal/repository"
-	pgrep "go-pocket-link/internal/repository/postgres"
-	redisrep "go-pocket-link/internal/repository/redis"
-	"go-pocket-link/internal/service"
-	"go-pocket-link/pkg/auth/jwt"
-	redisdb "go-pocket-link/pkg/cache/redis"
-	"go-pocket-link/pkg/crypto/hash"
-	pgdb "go-pocket-link/pkg/database/postgres"
+	sloggin "github.com/samber/slog-gin"
 	"log"
 	"log/slog"
 	"net/http"
@@ -31,9 +32,9 @@ const (
 
 func Run(configPath string) {
 	cfg := mustReadConfig(config.NewFileReader(configPath))
-	log.Println("read config file", configPath)
 
 	mustSetupLogger(cfg.Env)
+	slog.Info("read config", "path", configPath)
 	slog.Info("set up logger", "env", cfg.Env)
 
 	postgresDB := mustConnectToPostgres(cfg)
@@ -49,7 +50,7 @@ func Run(configPath string) {
 	slog.Info("initialized repositories")
 
 	services := service.Services{
-		Users: service.NewUsersService(repos.Users, hash.NewSHA1Hasher(cfg.Hash.Salt)),
+		Users: service.NewUsersService(repos.Users, hash.NewSHA1Hasher(cfg.Hash.Salt), validator.NewCredentialsValidator()),
 		Tokens: service.NewTokensService(repos.Tokens, jwt.NewTokenManager(cfg.Auth.AccessSecret, cfg.Auth.RefreshSecret,
 			jwt.StaticClaims{Issuer: "https://pocketlink.com", Audience: "https://api.pocketlink.com"}),
 			cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL),
@@ -58,7 +59,10 @@ func Run(configPath string) {
 
 	router := gin.New()
 	router.Use(gin.Recovery())
-	router.Use(gin.Logger())
+
+	mustSetupRouterLogger(router, cfg.Env)
+	//TODO: how about adding ELK support?
+
 	delivhttp.InitRouter(router, httpv1.NewHandler(&services))
 	slog.Info("initialized router")
 
@@ -105,6 +109,33 @@ func mustSetupLogger(env string) {
 	}
 
 	slog.SetDefault(logger)
+}
+
+func mustSetupRouterLogger(router *gin.Engine, env string) {
+	var logger *slog.Logger
+
+	switch env {
+	case config.EnvLocal:
+		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug,
+			AddSource: true})).With("env", env).With("mode", os.Getenv(gin.EnvGinMode))
+	case config.EnvProd:
+		logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo,
+			AddSource: true})).With("env", env).With("mode", os.Getenv(gin.EnvGinMode))
+	case config.EnvDev:
+		logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug,
+			AddSource: true})).With("env", env).With("mode", os.Getenv(gin.EnvGinMode))
+	}
+
+	loggerConfig := sloggin.Config{
+		DefaultLevel:     slog.LevelDebug,
+		ClientErrorLevel: slog.LevelWarn,
+		ServerErrorLevel: slog.LevelError,
+		WithUserAgent:    true,
+		WithRequestBody:  true,
+		WithResponseBody: true,
+	}
+
+	router.Use(sloggin.NewWithConfig(logger, loggerConfig))
 }
 
 func mustConnectToPostgres(cfg *config.Config) *pgdb.DB {

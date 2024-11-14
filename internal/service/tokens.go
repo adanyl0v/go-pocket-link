@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/adanyl0v/go-pocket-link/internal/domain"
+	"github.com/adanyl0v/go-pocket-link/internal/repository"
+	"github.com/adanyl0v/go-pocket-link/pkg/auth/jwt"
 	jwt5 "github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"go-pocket-link/internal/domain"
-	"go-pocket-link/internal/repository"
-	"go-pocket-link/pkg/auth/jwt"
 	"time"
 )
 

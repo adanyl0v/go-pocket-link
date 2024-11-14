@@ -2,8 +2,8 @@ package repository
 
 import (
 	"context"
+	"github.com/adanyl0v/go-pocket-link/internal/domain"
 	"github.com/google/uuid"
-	"go-pocket-link/internal/domain"
 	"time"
 )
 

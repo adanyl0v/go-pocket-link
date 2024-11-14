@@ -7,7 +7,8 @@ CREATE TABLE users (
     name VARCHAR(256) NOT NULL,
     email VARCHAR(256) NOT NULL UNIQUE,
     password VARCHAR(1024) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 -- +goose StatementEnd
 

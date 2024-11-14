@@ -2,9 +2,10 @@ package postgres
 
 import (
 	"context"
+	"github.com/adanyl0v/go-pocket-link/internal/domain"
+	"github.com/adanyl0v/go-pocket-link/pkg/database/postgres"
 	"github.com/google/uuid"
-	"go-pocket-link/internal/domain"
-	"go-pocket-link/pkg/database/postgres"
+	"time"
 )
 
 type UsersRepository struct {
@@ -16,7 +17,13 @@ func NewUsersRepository(db *postgres.DB) *UsersRepository {
 }
 
 func (r *UsersRepository) Save(ctx context.Context, user *domain.User) error {
-	return r.db.Save(ctx, &user.ID, `INSERT INTO users(name, email, password) VALUES (:name, :email, :password) RETURNING id`, user)
+	err := r.db.Save(ctx, &user.ID, `INSERT INTO users(name, email, password) VALUES (:name, :email, :password) RETURNING id`, user)
+	if err != nil {
+		return err
+	}
+	user.CreatedAt = time.Now()
+	user.UpdatedAt = user.CreatedAt
+	return nil
 }
 
 func (r *UsersRepository) Get(ctx context.Context, id uuid.UUID) (domain.User, error) {
@@ -37,7 +44,14 @@ func (r *UsersRepository) GetByCredentials(ctx context.Context, email, password 
 }
 
 func (r *UsersRepository) Update(ctx context.Context, user *domain.User) error {
-	return r.db.UpdateNamed(ctx, `UPDATE users SET name = :name, email = :email, password = :password WHERE id = :id`, user)
+	previousUpdatedTime := user.UpdatedAt
+	user.UpdatedAt = time.Now()
+	err := r.db.UpdateNamed(ctx, `UPDATE users SET name = :name, email = :email, password = :password, updated_at = :updated_at WHERE id = :id`, user)
+	if err != nil {
+		user.UpdatedAt = previousUpdatedTime
+		return err
+	}
+	return nil
 }
 
 func (r *UsersRepository) Delete(ctx context.Context, id uuid.UUID) error {
